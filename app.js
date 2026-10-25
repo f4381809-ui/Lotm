@@ -10,16 +10,22 @@ const places = [
 const $ = selector => document.querySelector(selector);
 const viewport = $('#viewport'), world = $('#world');
 const STORAGE_KEY = 'lotm-living-atlas-v1';
+const BASE_GAME_MINUTES_PER_SECOND = 0.2;
+const TRANSPORT_MINUTES_PER_SECOND = 4;
+const CLOCK_VERSION = 2;
+const TIME_SPEEDS = [0.25,1,5,15];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const id = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const state = {minutes:540,running:true,speed:1,ships:true,trains:true,players:[],events:[],journal:[]};
+const state = {minutes:540,transportMinutes:540,clockVersion:CLOCK_VERSION,running:true,speed:1,ships:true,trains:true,players:[],events:[],journal:[]};
 let storageAvailable = true;
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
   if (saved && saved.version === 1) {
     if (finite(saved.minutes) && saved.minutes >= 0) state.minutes = saved.minutes;
-    if ([1,5,15].includes(saved.speed)) state.speed = saved.speed;
+    // Old saves keep the entire session, but start at the new relaxed pace once.
+    if (saved.clockVersion === CLOCK_VERSION && TIME_SPEEDS.includes(saved.speed)) state.speed = saved.speed;
+    state.transportMinutes = finite(saved.transportMinutes) && saved.transportMinutes >= 0 ? saved.transportMinutes : state.minutes;
     for (const key of ['running','ships','trains']) if (typeof saved[key] === 'boolean') state[key] = saved[key];
     const validPoint = p => p && typeof p.id === 'string' && typeof p.name === 'string' && p.name.trim() && finite(p.x) && finite(p.y) && p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100;
     state.players = (Array.isArray(saved.players) ? saved.players : []).filter(p => validPoint(p) && /^#[a-f\d]{6}$/i.test(p.color)).slice(0,30).map(p => ({id:p.id,name:p.name.slice(0,40),color:p.color,x:p.x,y:p.y}));
@@ -180,11 +186,21 @@ function placeAt(clientX,clientY) {
   }
   updateWorld();save();
 }
-function transform() {world.style.transform=`translate(${dx}px, calc(-50% + ${dy}px)) scale(${scale})`;$('#zoom-level').textContent=Math.round(scale*100)+'%';}
-function zoom(factor) {scale=clamp(scale*factor,.75,5);transform();}
+function transform() {world.style.transform=`translate(${dx}px, calc(-50% + ${dy}px)) scale(${scale})`;world.style.setProperty('--marker-scale',1/scale);$('#zoom-level').textContent=Math.round(scale*100)+'%';}
+function zoom(factor, clientX, clientY) {
+  const previous=scale;
+  scale=clamp(scale*factor,.75,6);
+  const rect=viewport.getBoundingClientRect();
+  const anchorX=(clientX ?? rect.left+rect.width/2)-(rect.left+rect.width/2);
+  const anchorY=(clientY ?? rect.top+rect.height/2)-(rect.top+rect.height/2);
+  const ratio=scale/previous;
+  dx=anchorX-(anchorX-dx)*ratio;
+  dy=anchorY-(anchorY-dy)*ratio;
+  transform();
+}
 $('#plus').onclick=()=>zoom(1.25);$('#minus').onclick=()=>zoom(.8);
 $('#reset').onclick=()=>{scale=1;dx=dy=0;closeDetail();transform();};
-viewport.addEventListener('wheel',e=>{if(e.target.closest('#detail, #placement-banner'))return;e.preventDefault();zoom(e.deltaY<0?1.1:1/1.1);},{passive:false});
+viewport.addEventListener('wheel',e=>{if(e.target.closest('#detail, #placement-banner'))return;e.preventDefault();zoom(e.deltaY<0?1.1:1/1.1,e.clientX,e.clientY);},{passive:false});
 viewport.onpointerdown=e=>{
   if(e.button!==0)return;
   if(e.target.closest('#detail, .zoom, #placement-banner'))return;
@@ -206,20 +222,24 @@ document.addEventListener('keydown',e=>{
 const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer')});
 let lastMinute=-1;
 function updateWorld(force=false) {
-  simulation.update({minutes:state.minutes,ships:state.ships,trains:state.trains,events:state.events});
+  simulation.update({minutes:state.transportMinutes,ships:state.ships,trains:state.trains,events:state.events});
   const minute=Math.floor(state.minutes);if(minute===lastMinute&&!force)return;lastMinute=minute;
   const hour=(state.minutes%1440)/60;
   const phase=hour>=7&&hour<18?'day':hour>=18&&hour<20?'dusk':hour>=5&&hour<7?'dawn':'night';
   const label={day:'День',night:'Ночь',dawn:'Рассвет',dusk:'Сумерки'}[phase];
   document.body.dataset.phase=phase;document.body.dataset.paused=String(!state.running);
-  const darkness=hour>=7&&hour<18?0:hour>=18&&hour<20?(hour-18)/2*.6:hour>=5&&hour<7?(7-hour)/2*.6:.6;
+  const darkness=hour>=7&&hour<18?0:hour>=18&&hour<20?(hour-18)/2*.45:hour>=5&&hour<7?(7-hour)/2*.45:.45;
   $('#night-overlay').style.opacity=darkness;
   $('#phase-icon').textContent=phase==='night'?'☾':'☀';$('#phase-label').textContent=`${label} · ${state.running?'мир в движении':'время на паузе'}`;
   $('#map-phase').textContent={day:'ДНЕВНОЙ СВЕТ',night:'ПОД АЛОЙ ЛУНОЙ',dawn:'ПЕРВЫЙ СВЕТ',dusk:'СУМЕРКИ'}[phase];
   $('#world-time').textContent=timeText(state.minutes);$('#world-day').textContent=`День ${Math.floor(state.minutes/1440)+1}`;
   $('#day').setAttribute('aria-pressed',String(phase==='day'||phase==='dawn'));$('#night').setAttribute('aria-pressed',String(phase==='night'||phase==='dusk'));
   $('#pause').textContent=state.running?'Ⅱ':'▶';$('#pause').setAttribute('aria-label',state.running?'Приостановить время':'Продолжить время');$('#pause').title=state.running?'Приостановить время':'Продолжить время';
-  $('#clock-hint').textContent=`1 секунда = ${4*state.speed} игровых минут${state.running?'':' · пауза'}`;
+  const dayRealMinutes = 1440 / (BASE_GAME_MINUTES_PER_SECOND * state.speed * 60);
+  const dayLength = dayRealMinutes >= 60 ? `${dayRealMinutes / 60} ч` : `${dayRealMinutes} мин`;
+  const gameSeconds = BASE_GAME_MINUTES_PER_SECOND * state.speed * 60;
+  const rate = gameSeconds >= 60 ? `${gameSeconds / 60} ${gameSeconds === 60 ? 'игровая минута' : 'игровые минуты'}` : `${gameSeconds} ${gameSeconds === 3 ? 'игровые секунды' : 'игровых секунд'}`;
+  $('#clock-hint').textContent=`Сутки ≈ ${dayLength} · 1 с = ${rate}${state.running?'':' · пауза'}`;
   $('#speed').value=state.speed;$('#ships').checked=state.ships;$('#trains').checked=state.trains;
   for(const event of [...state.events]){
     if(event.endsAt!==null&&event.endsAt<=state.minutes){endEvent(event.id,true);continue;}
@@ -241,7 +261,11 @@ for(const kind of ['ships','trains'])$('#'+kind).onchange=()=>{state[kind]=$('#'
 let lastTick=performance.now(),lastSave=lastTick;
 function tick(now) {
   const elapsed=Math.min((now-lastTick)/1000,1);lastTick=now;
-  if(state.running)state.minutes+=elapsed*4*state.speed;
+  if(state.running){
+    state.minutes+=elapsed*BASE_GAME_MINUTES_PER_SECOND*state.speed;
+    // Keep schematic travel visible while the world's day/night cycle stays slow.
+    state.transportMinutes+=elapsed*TRANSPORT_MINUTES_PER_SECOND*state.speed;
+  }
   updateWorld();
   if(now-lastSave>5000){save();lastSave=now;}
   requestAnimationFrame(tick);
