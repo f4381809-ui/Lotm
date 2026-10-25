@@ -25,7 +25,7 @@
       <div class="scale-info"><strong>1 клетка = 1500 км²</strong><span>Сторона клетки ≈ 38,7 км</span></div>
       <p class="form-note">Корабли и поезд идут по игровым часам. Скорости крейсерские, для паровой эпохи. Переход к дню или ночи продвигает и путешествие.</p>
       <div id="travel-list" class="entity-list"></div>
-      <p class="form-note">Расчёт по длине маршрута на сетке, без портовых стоянок и задержек. Линии маршрутов условные.</p>
+      <p class="form-note">Морские рейсы соединяют порты. Время рейса включает переход и стоянку перед отправлением. Плавные фарватеры проложены по карте для игры.</p>
     </section>
     <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
   </div>
@@ -44,7 +44,7 @@
     <div class="map-label"><span class="status"></span> АТЛАС HD <span>·</span><span id="map-phase">ДНЕВНОЙ СВЕТ</span></div>
     <div id="placement-banner" hidden><span id="placement-text"></span><button id="cancel-placement" aria-label="Отменить размещение">Отмена ×</button></div>
     <div class="compass">N<span>✧</span>S</div><div class="zoom"><button id="plus" aria-label="Приблизить">+</button><span id="zoom-level">100%</span><button id="minus" aria-label="Отдалить">−</button></div>
-    <div class="map-legend"><span><i class="legend-line sea"></i> Морской путь</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
+    <div class="map-legend"><span><i class="legend-line sea"></i> Морской рейс</span><span>⚓ Порты</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
     <div class="hint" id="map-hint">Перетаскивайте карту · Колесо / + − для масштаба</div><div id="detail" hidden></div>
   </section>
   <footer><span id="clock-hint">Сутки ≈ 2 ч · 1 с = 12 игровых секунд</span><span>Игровая сессия хранится только в этом браузере</span></footer>

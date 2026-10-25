@@ -11,6 +11,7 @@
 .tabs{grid-template-columns:repeat(4,minmax(0,1fr))}.tabs button{font-size:10px;padding:7px 1px}.tabs span{margin-left:2px}
 .scale-info{border:1px solid #566248;background:#222d20;border-radius:6px;padding:12px;color:#d5c38e}.scale-info strong{font-size:13px;font-weight:500;display:block}.scale-info span{font-size:10px;color:var(--muted);display:block;margin-top:4px}
 .travel-card h3{font-size:12px;font-weight:500;margin:0}.travel-speed{font-size:12px;color:var(--gold);margin:12px 0 8px}.travel-info{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--muted)}.travel-card progress{width:100%;height:5px;appearance:none;margin:14px 0 4px;accent-color:var(--gold);border:0;border-radius:4px;background:#343e2f;overflow:hidden}.travel-card progress::-webkit-progress-bar{background:#343e2f}.travel-card progress::-webkit-progress-value{background:var(--gold)}.travel-card progress::-moz-progress-bar{background:var(--gold)}.travel-remaining{font-size:10px;color:#c6ceba;margin:6px 0 0}
+#transport-layer .port-marker{position:absolute;transform:translate(-50%,-50%) scale(var(--marker-scale,1));pointer-events:none;z-index:1;color:#b8d4cf}.port-pin{display:grid;place-items:center;width:17px;height:17px;border:1px solid #829e96;border-radius:3px;background:#112421;font-size:11px}.port-label{position:absolute;left:21px;top:7px;color:#cce2da;font-size:9px;white-space:nowrap;border:1px solid #698b794d;background:#10251dec;border-radius:3px;padding:2px 6px}.transport-marker.docked{border-color:#d0b477;background:#35321e;color:#e8d39f}.berth-label{position:absolute;top:-19px;left:50%;transform:translateX(-50%);font-size:7px;white-space:nowrap;background:#292c1ee8;border:1px solid #c8ad7277;color:#e8d39f;padding:1px 4px;border-radius:3px}.journey-label{font-size:12px;line-height:1.6;color:#d7d6c0;margin:12px 0 6px;overflow-wrap:anywhere}.travel-speed{font-size:10px}
 
 </style></head>
 <body>
@@ -37,7 +38,7 @@
       <div class="scale-info"><strong>1 клетка = 1500 км²</strong><span>Сторона клетки ≈ 38,7 км</span></div>
       <p class="form-note">Корабли и поезд идут по игровым часам. Скорости крейсерские, для паровой эпохи. Переход к дню или ночи продвигает и путешествие.</p>
       <div id="travel-list" class="entity-list"></div>
-      <p class="form-note">Расчёт по длине маршрута на сетке, без портовых стоянок и задержек. Линии маршрутов условные.</p>
+      <p class="form-note">Морские рейсы соединяют порты. Время рейса включает переход и стоянку перед отправлением. Плавные фарватеры проложены по карте для игры.</p>
     </section>
     <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
   </div>
@@ -56,7 +57,7 @@
     <div class="map-label"><span class="status"></span> АТЛАС HD <span>·</span><span id="map-phase">ДНЕВНОЙ СВЕТ</span></div>
     <div id="placement-banner" hidden><span id="placement-text"></span><button id="cancel-placement" aria-label="Отменить размещение">Отмена ×</button></div>
     <div class="compass">N<span>✧</span>S</div><div class="zoom"><button id="plus" aria-label="Приблизить">+</button><span id="zoom-level">100%</span><button id="minus" aria-label="Отдалить">−</button></div>
-    <div class="map-legend"><span><i class="legend-line sea"></i> Морской путь</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
+    <div class="map-legend"><span><i class="legend-line sea"></i> Морской рейс</span><span>⚓ Порты</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
     <div class="hint" id="map-hint">Перетаскивайте карту · Колесо / + − для масштаба</div><div id="detail" hidden></div>
   </section>
   <footer><span id="clock-hint">Сутки ≈ 2 ч · 1 с = 12 игровых секунд</span><span>Игровая сессия хранится только в этом браузере</span></footer>
@@ -79,26 +80,69 @@
     imageHeight: 3800
   });
   const KM_PER_NAUTICAL_MILE = 1.852;
+  const toPixels = point => [point[0] / 100 * SCALE.imageWidth, point[1] / 100 * SCALE.imageHeight];
+  const toPercent = point => [point[0] / SCALE.imageWidth * 100, point[1] / SCALE.imageHeight * 100];
+  const pixelLength = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const svgPoint = point => `${(point[0] / SCALE.imageWidth * 1000).toFixed(6)} ${(point[1] / SCALE.imageHeight * 514).toFixed(6)}`;
 
   function distanceKm(a, b) {
     if (!Array.isArray(a) || !Array.isArray(b) ||
         ![a[0], a[1], b[0], b[1]].every(Number.isFinite)) {
       throw new TypeError('Map points must contain finite x/y percentages');
     }
-    const dxCells = (b[0] - a[0]) / 100 * SCALE.imageWidth / SCALE.cellPixels;
-    const dyCells = (b[1] - a[1]) / 100 * SCALE.imageHeight / SCALE.cellPixels;
-    return Math.hypot(dxCells, dyCells) * SCALE.cellSideKm;
+    return pixelLength(toPixels(a), toPixels(b)) / SCALE.cellPixels * SCALE.cellSideKm;
+  }
+
+  // Round only inside each waypoint's local triangle. Unlike an unconstrained spline,
+  // the curve cannot swing outside the carefully chosen coastal navigation corridor.
+  function roundedGeometry(waypoints) {
+    const pixels = waypoints.map(toPixels);
+    const sampled = [pixels[0]];
+    let svgPath = `M ${svgPoint(pixels[0])}`;
+    const append = point => {
+      if (pixelLength(sampled.at(-1), point) > 1e-9) sampled.push(point);
+    };
+    for (let i = 1; i < pixels.length - 1; i++) {
+      const previous = pixels[i - 1], corner = pixels[i], next = pixels[i + 1];
+      const incoming = pixelLength(previous, corner), outgoing = pixelLength(corner, next);
+      const cut = Math.min(16, incoming * .15, outgoing * .15);
+      if (cut < 1e-9) continue;
+      const entry = mix(corner, previous, cut / incoming);
+      const exit = mix(corner, next, cut / outgoing);
+      svgPath += ` L ${svgPoint(entry)} Q ${svgPoint(corner)} ${svgPoint(exit)}`;
+      append(entry);
+      // At most .75 source pixels per sample around a bend; movement follows the
+      // same curve by measured arc length, rather than speeding up at control points.
+      const steps = Math.max(12, Math.ceil(cut * 2 / .75));
+      for (let step = 1; step <= steps; step++) {
+        const t = step / steps;
+        append(mix(mix(entry, corner, t), mix(corner, exit, t), t));
+      }
+    }
+    svgPath += ` L ${svgPoint(pixels.at(-1))}`;
+    append(pixels.at(-1));
+    return { points: sampled.map(toPercent), svgPath };
   }
 
   function buildRoute(definition) {
-    const points = definition.points.map(point => Object.freeze([...point]));
+    const waypoints = definition.points.map(point => Object.freeze([...point]));
+    const geometry = definition.kind === 'ship' ? roundedGeometry(waypoints) : {
+      points: waypoints,
+      svgPath: waypoints.map((point, index) => `${index ? 'L' : 'M'} ${svgPoint(toPixels(point))}`).join(' ')
+    };
+    const points = geometry.points.map(point => Object.freeze([...point]));
     const segmentsKm = points.slice(1).map((point, i) => distanceKm(points[i], point));
-    const totalKm = segmentsKm.reduce((sum, distance) => sum + distance, 0);
+    const cumulativeKm = [0];
+    for (const segment of segmentsKm) cumulativeKm.push(cumulativeKm.at(-1) + segment);
+    const totalKm = cumulativeKm.at(-1);
     const speedKnots = definition.kind === 'ship' ? definition.speedKnots : null;
     const speedKmh = speedKnots === null ? definition.speedKmh : speedKnots * KM_PER_NAUTICAL_MILE;
+    const dockMinutes = definition.kind === 'ship' ? definition.dockMinutes : 0;
     if (points.length < 2 || !(speedKmh > 0) || !Number.isFinite(speedKmh) || !(totalKm > 0)) {
       throw new RangeError('A route needs positive length and cruising speed');
     }
+    const durationMinutes = totalKm / speedKmh * 60;
     return Object.freeze({
       id: definition.id,
       kind: definition.kind,
@@ -106,43 +150,66 @@
       speedKnots,
       speedKmh,
       totalKm,
-      durationMinutes: totalKm / speedKmh * 60,
+      durationMinutes,
+      dockMinutes,
+      cycleMinutes: 2 * (durationMinutes + dockMinutes),
+      startPort: definition.startPort || null,
+      endPort: definition.endPort || null,
+      waypoints: Object.freeze(waypoints),
       points: Object.freeze(points),
-      segmentsKm: Object.freeze(segmentsKm)
+      svgPath: geometry.svgPath,
+      segmentsKm: Object.freeze(segmentsKm),
+      cumulativeKm: Object.freeze(cumulativeKm)
     });
   }
 
+  // Berths are on the seaward side of the map's printed harbor symbols.
+  // Coastal waypoints were checked against the HD shoreline before corner rounding.
+  const ports = Object.freeze([
+    Object.freeze({ id: 'pritz', name: 'Порт Приц', x: 4068 / 7400 * 100, y: 1158 / 3800 * 100 }),
+    Object.freeze({ id: 'bayam', name: 'Байам', x: 4318 / 7400 * 100, y: 1498 / 3800 * 100 }),
+    Object.freeze({ id: 'bansy', name: 'Порт Банси', x: 4118 / 7400 * 100, y: 1355 / 3800 * 100 })
+  ]);
   const routes = Object.freeze([
-    buildRoute({ id: 'sea-east', kind: 'ship', name: 'Почтовый пароход', speedKnots: 12,
-      points: [[54, 36.5], [57.5, 39], [62, 37], [66, 42], [61, 46], [58, 47]] }),
-    buildRoute({ id: 'sea-west', kind: 'ship', name: 'Грузовой пароход', speedKnots: 8,
-      points: [[49, 42], [43, 38], [38, 45], [43, 51], [51, 48], [54, 48]] }),
+    buildRoute({ id: 'sea-east', kind: 'ship', name: 'Почтовый пароход', speedKnots: 12, dockMinutes: 60,
+      startPort: ports[0], endPort: ports[1],
+      points: [[4068 / 7400 * 100, 1158 / 3800 * 100], [4090 / 7400 * 100, 1185 / 3800 * 100], [4130 / 7400 * 100, 1240 / 3800 * 100], [4175 / 7400 * 100, 1300 / 3800 * 100], [4210 / 7400 * 100, 1370 / 3800 * 100], [4260 / 7400 * 100, 1435 / 3800 * 100], [4295 / 7400 * 100, 1468 / 3800 * 100], [4318 / 7400 * 100, 1498 / 3800 * 100]] }),
+    buildRoute({ id: 'sea-west', kind: 'ship', name: 'Грузовой пароход', speedKnots: 8, dockMinutes: 120,
+      startPort: ports[1], endPort: ports[2],
+      points: [[4318 / 7400 * 100, 1498 / 3800 * 100], [4288 / 7400 * 100, 1477 / 3800 * 100], [4245 / 7400 * 100, 1448 / 3800 * 100], [4200 / 7400 * 100, 1402 / 3800 * 100], [4157 / 7400 * 100, 1363 / 3800 * 100], [4118 / 7400 * 100, 1355 / 3800 * 100]] }),
     buildRoute({ id: 'rail-loen', kind: 'train', name: 'Паровоз Лоэна', speedKmh: 40,
       points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] })
   ]);
 
-  function positionAlong(route, progress) {
-    let distance = route.totalKm * progress;
-    for (let i = 0; i < route.segmentsKm.length; i++) {
-      const length = route.segmentsKm[i];
-      if (distance <= length || i === route.segmentsKm.length - 1) {
-        const fraction = length ? Math.max(0, Math.min(1, distance / length)) : 0;
-        return {
-          x: route.points[i][0] + (route.points[i + 1][0] - route.points[i][0]) * fraction,
-          y: route.points[i][1] + (route.points[i + 1][1] - route.points[i][1]) * fraction
-        };
-      }
-      distance -= length;
+  function positionAlong(route, progress, returning) {
+    const distance = route.totalKm * Math.max(0, Math.min(1, progress));
+    let low = 0, high = route.segmentsKm.length - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (route.cumulativeKm[middle + 1] < distance) low = middle + 1;
+      else high = middle;
     }
-    return { x: route.points[0][0], y: route.points[0][1] };
+    const index = low, length = route.segmentsKm[index];
+    const fraction = length ? Math.max(0, Math.min(1, (distance - route.cumulativeKm[index]) / length)) : 0;
+    const a = route.points[index], b = route.points[index + 1];
+    const point = mix(a, b, fraction);
+    const ap = toPixels(a), bp = toPixels(b);
+    const headingDegrees = Math.atan2(bp[1] - ap[1], bp[0] - ap[0]) * 180 / Math.PI + (returning ? 180 : 0);
+    return { x: point[0], y: point[1], headingDegrees: (headingDegrees + 360) % 360 };
   }
 
   function statusAt(route, elapsedMinutes) {
     const time = Number.isFinite(elapsedMinutes) ? Math.max(0, elapsedMinutes) : 0;
-    const leg = Math.floor(time / route.durationMinutes);
-    const progress = (time % route.durationMinutes) / route.durationMinutes;
+    const legMinutes = route.durationMinutes + route.dockMinutes;
+    const leg = Math.floor(time / legMinutes);
+    const withinLeg = time % legMinutes;
     const direction = leg % 2 ? 'return' : 'outbound';
-    const position = positionAlong(route, direction === 'return' ? 1 - progress : progress);
+    const origin = direction === 'outbound' ? route.startPort : route.endPort;
+    const destination = direction === 'outbound' ? route.endPort : route.startPort;
+    const phase = withinLeg < route.dockMinutes ? 'docked' : 'sailing';
+    const nextDepartureMinutes = phase === 'docked' ? route.dockMinutes - withinLeg : 0;
+    const progress = phase === 'docked' ? 0 : (withinLeg - route.dockMinutes) / route.durationMinutes;
+    const position = positionAlong(route, direction === 'return' ? 1 - progress : progress, direction === 'return');
     return {
       id: route.id,
       kind: route.kind,
@@ -151,16 +218,23 @@
       speedKmh: route.speedKmh,
       totalKm: route.totalKm,
       durationMinutes: route.durationMinutes,
+      dockMinutes: route.dockMinutes,
+      cycleMinutes: route.cycleMinutes,
       ...position,
       progress,
       direction,
+      phase,
+      origin,
+      destination,
+      currentPort: phase === 'docked' ? origin : null,
+      nextDepartureMinutes,
       remainingKm: route.totalKm * (1 - progress),
-      remainingMinutes: route.durationMinutes * (1 - progress),
+      remainingMinutes: route.durationMinutes * (1 - progress) + nextDepartureMinutes,
       leg
     };
   }
 
-  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, routes, distanceKm, statusAt });
+  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, ports, routes, distanceKm, statusAt });
 });
 
 </script><script>
@@ -201,8 +275,11 @@
     document.head.append(style);
   }
   function createRoute(definition) {
-    const path = document.createElementNS(SVG_NS, 'polyline');
-    path.setAttribute('points', definition.points.map(([x, y]) => `${x * 10},${y * 5.14}`).join(' '));
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', definition.svgPath);
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.dataset.route = definition.id;
     path.setAttribute('class', `simulation-route ${definition.kind}`);
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
@@ -211,6 +288,15 @@
   }
   window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival }) {
     injectStyles();
+    const portMarkers = (travel.ports || []).map(port => {
+      const marker = document.createElement('div');
+      marker.className = 'port-marker';marker.dataset.portId=port.id;
+      marker.style.left=`${port.x}%`;marker.style.top=`${port.y}%`;
+      marker.setAttribute('role','img');marker.setAttribute('aria-label',`Порт: ${port.name}`);
+      const pin=document.createElement('span');pin.className='port-pin';pin.textContent='⚓';
+      const label=document.createElement('span');label.className='port-label';label.textContent=port.name;
+      marker.append(pin,label);transportLayer.append(marker);return marker;
+    });
     const transport = routeDefinitions.map(definition => {
       const path = createRoute(definition);
       routesLayer.append(path);
@@ -220,8 +306,9 @@
       marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
       marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
       marker.innerHTML = icons[definition.kind];
+      const berth=document.createElement('span');berth.className='berth-label';berth.textContent='В порту';berth.hidden=true;marker.append(berth);
       transportLayer.append(marker);
-      return { definition, marker, path, lastLeg: null };
+      return { definition, marker, path, berth, lastLeg: null };
     });
     const zones = new Map();
     let lastWeatherSignature = '';
@@ -282,7 +369,7 @@
     return {
       update({ minutes = 0, ships = true, trains = true, events = [] } = {}) {
         const statuses = transport.map(item => {
-          const { definition, marker, path } = item;
+          const { definition, marker, path, berth } = item;
           const enabled = definition.kind === 'ship' ? ships : trains;
           const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
@@ -290,6 +377,13 @@
           marker.style.left = `${status.x}%`;
           marker.style.top = `${status.y}%`;
           marker.dataset.route = definition.id;
+          const docked=status.phase==='docked';
+          marker.classList.toggle('docked',docked);marker.dataset.phase=status.phase;
+          berth.hidden=!docked;
+          const journey=status.origin&&status.destination?`${status.origin.name} → ${status.destination.name}`:'';
+          const stateLabel=docked?`В порту ${status.currentPort.name}`:'В пути';
+          marker.title=`${definition.name} · ${speedLabel(definition)} · ${journey} · ${stateLabel}`;
+          marker.setAttribute('aria-label',marker.title);
           if (enabled && item.lastLeg !== null && status.leg > item.lastLeg && typeof onArrival === 'function') {
             onArrival({ id: definition.id, name: definition.name, kind: definition.kind,
               arrivals: status.leg - item.lastLeg });
@@ -297,11 +391,13 @@
           item.lastLeg = status.leg;
           return { ...status, enabled };
         });
+        portMarkers.forEach(port=>port.hidden=!ships);
         updateWeather(Array.isArray(events) ? events : []);
         return statuses;
       },
       destroy() {
         transport.forEach(item => { item.marker.remove(); item.path.remove(); });
+        portMarkers.forEach(port=>port.remove());
         zones.forEach(zone => zone.remove());
         zones.clear();
       }
@@ -537,18 +633,33 @@ function formatDuration(minutes) {
   return [days?`${days} дн.`:'',hours?`${hours} ч`:'',rest?`${rest} мин`:''].filter(Boolean).join(' ') || '0 мин';
 }
 function formatDistance(km) { return km.toLocaleString('ru-RU',{maximumFractionDigits:1}); }
+function focusVoyage(routeId) {
+  const route=LotMTravel.routes.find(item=>item.id===routeId);if(!route)return;
+  const xs=route.points.map(p=>p[0]),ys=route.points.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const width=(maxX-minX)/100*world.offsetWidth,height=(maxY-minY)/100*world.offsetHeight;
+  scale=clamp(Math.min((viewport.clientWidth-100)/Math.max(width,1),(viewport.clientHeight-160)/Math.max(height,1)),.75,6);
+  locate((minX+maxX)/2,(minY+maxY)/2);
+  if(window.innerWidth<=800)viewport.scrollIntoView({block:'center',behavior:'smooth'});
+}
 function renderTravel(statuses) {
   if(!Array.isArray(statuses))return;
   const list=$('#travel-list');list.replaceChildren();
   for(const route of statuses){
-    const card=node('article','entity-card travel-card');
+    const card=node('article','entity-card travel-card');card.dataset.routeId=route.id;
     const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
     const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
     const progress=node('progress');progress.max=1;progress.value=route.progress;progress.setAttribute('aria-label',`Пройдено по маршруту: ${route.name}`);
     const info=node('div','travel-info');
-    info.append(node('span','',`${formatDistance(route.totalKm)} км в одну сторону`),node('span','',`В одну сторону: ${formatDuration(route.durationMinutes)}`));
-    const status=route.enabled?(state.running?(route.direction==='return'?'Обратный путь':'В пути'):'Время на паузе'):'Скрыт на карте';
-    card.append(heading,node('p','travel-speed',speed),info,progress,node('p','travel-remaining',`${status} · осталось ${formatDistance(route.remainingKm)} км`),node('p','entity-meta',`До прибытия: ${formatDuration(route.remainingMinutes)} игрового времени`));
+    info.append(node('span','',`${formatDistance(route.totalKm)} км · в пути ${formatDuration(route.durationMinutes)}`));
+    if(route.kind==='ship')info.append(node('span','',`Стоянка в порту: ${formatDuration(route.dockMinutes)}`));
+    const journey=route.origin&&route.destination?`${route.origin.name} → ${route.destination.name}`:(route.direction==='return'?'Бэклунд → Тинген':'Тинген → Бэклунд');
+    const docked=route.phase==='docked';
+    const movement=docked?`В порту: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
+    const status=route.enabled?`${movement}${state.running?'':' · пауза'}`:'Скрыт на карте';
+    const remaining=docked?`Отправление через ${formatDuration(route.nextDepartureMinutes)}`:`До прибытия: ${formatDuration(route.remainingMinutes)} · ${formatDistance(route.remainingKm)} км`;
+    const actions=node('div','entity-actions');actions.append(button('↗ Показать рейс','move-button',()=>focusVoyage(route.id),`Показать рейс: ${route.name}`));
+    card.append(heading,node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`${remaining} игрового времени`),actions);
     list.append(card);
   }
 }

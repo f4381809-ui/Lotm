@@ -35,8 +35,11 @@
     document.head.append(style);
   }
   function createRoute(definition) {
-    const path = document.createElementNS(SVG_NS, 'polyline');
-    path.setAttribute('points', definition.points.map(([x, y]) => `${x * 10},${y * 5.14}`).join(' '));
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', definition.svgPath);
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.dataset.route = definition.id;
     path.setAttribute('class', `simulation-route ${definition.kind}`);
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
@@ -45,6 +48,15 @@
   }
   window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival }) {
     injectStyles();
+    const portMarkers = (travel.ports || []).map(port => {
+      const marker = document.createElement('div');
+      marker.className = 'port-marker';marker.dataset.portId=port.id;
+      marker.style.left=`${port.x}%`;marker.style.top=`${port.y}%`;
+      marker.setAttribute('role','img');marker.setAttribute('aria-label',`Порт: ${port.name}`);
+      const pin=document.createElement('span');pin.className='port-pin';pin.textContent='⚓';
+      const label=document.createElement('span');label.className='port-label';label.textContent=port.name;
+      marker.append(pin,label);transportLayer.append(marker);return marker;
+    });
     const transport = routeDefinitions.map(definition => {
       const path = createRoute(definition);
       routesLayer.append(path);
@@ -54,8 +66,9 @@
       marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
       marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
       marker.innerHTML = icons[definition.kind];
+      const berth=document.createElement('span');berth.className='berth-label';berth.textContent='В порту';berth.hidden=true;marker.append(berth);
       transportLayer.append(marker);
-      return { definition, marker, path, lastLeg: null };
+      return { definition, marker, path, berth, lastLeg: null };
     });
     const zones = new Map();
     let lastWeatherSignature = '';
@@ -116,7 +129,7 @@
     return {
       update({ minutes = 0, ships = true, trains = true, events = [] } = {}) {
         const statuses = transport.map(item => {
-          const { definition, marker, path } = item;
+          const { definition, marker, path, berth } = item;
           const enabled = definition.kind === 'ship' ? ships : trains;
           const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
@@ -124,6 +137,13 @@
           marker.style.left = `${status.x}%`;
           marker.style.top = `${status.y}%`;
           marker.dataset.route = definition.id;
+          const docked=status.phase==='docked';
+          marker.classList.toggle('docked',docked);marker.dataset.phase=status.phase;
+          berth.hidden=!docked;
+          const journey=status.origin&&status.destination?`${status.origin.name} → ${status.destination.name}`:'';
+          const stateLabel=docked?`В порту ${status.currentPort.name}`:'В пути';
+          marker.title=`${definition.name} · ${speedLabel(definition)} · ${journey} · ${stateLabel}`;
+          marker.setAttribute('aria-label',marker.title);
           if (enabled && item.lastLeg !== null && status.leg > item.lastLeg && typeof onArrival === 'function') {
             onArrival({ id: definition.id, name: definition.name, kind: definition.kind,
               arrivals: status.leg - item.lastLeg });
@@ -131,11 +151,13 @@
           item.lastLeg = status.leg;
           return { ...status, enabled };
         });
+        portMarkers.forEach(port=>port.hidden=!ships);
         updateWeather(Array.isArray(events) ? events : []);
         return statuses;
       },
       destroy() {
         transport.forEach(item => { item.marker.remove(); item.path.remove(); });
+        portMarkers.forEach(port=>port.remove());
         zones.forEach(zone => zone.remove());
         zones.clear();
       }

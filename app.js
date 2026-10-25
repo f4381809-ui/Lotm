@@ -225,18 +225,33 @@ function formatDuration(minutes) {
   return [days?`${days} дн.`:'',hours?`${hours} ч`:'',rest?`${rest} мин`:''].filter(Boolean).join(' ') || '0 мин';
 }
 function formatDistance(km) { return km.toLocaleString('ru-RU',{maximumFractionDigits:1}); }
+function focusVoyage(routeId) {
+  const route=LotMTravel.routes.find(item=>item.id===routeId);if(!route)return;
+  const xs=route.points.map(p=>p[0]),ys=route.points.map(p=>p[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const width=(maxX-minX)/100*world.offsetWidth,height=(maxY-minY)/100*world.offsetHeight;
+  scale=clamp(Math.min((viewport.clientWidth-100)/Math.max(width,1),(viewport.clientHeight-160)/Math.max(height,1)),.75,6);
+  locate((minX+maxX)/2,(minY+maxY)/2);
+  if(window.innerWidth<=800)viewport.scrollIntoView({block:'center',behavior:'smooth'});
+}
 function renderTravel(statuses) {
   if(!Array.isArray(statuses))return;
   const list=$('#travel-list');list.replaceChildren();
   for(const route of statuses){
-    const card=node('article','entity-card travel-card');
+    const card=node('article','entity-card travel-card');card.dataset.routeId=route.id;
     const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
     const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
     const progress=node('progress');progress.max=1;progress.value=route.progress;progress.setAttribute('aria-label',`Пройдено по маршруту: ${route.name}`);
     const info=node('div','travel-info');
-    info.append(node('span','',`${formatDistance(route.totalKm)} км в одну сторону`),node('span','',`В одну сторону: ${formatDuration(route.durationMinutes)}`));
-    const status=route.enabled?(state.running?(route.direction==='return'?'Обратный путь':'В пути'):'Время на паузе'):'Скрыт на карте';
-    card.append(heading,node('p','travel-speed',speed),info,progress,node('p','travel-remaining',`${status} · осталось ${formatDistance(route.remainingKm)} км`),node('p','entity-meta',`До прибытия: ${formatDuration(route.remainingMinutes)} игрового времени`));
+    info.append(node('span','',`${formatDistance(route.totalKm)} км · в пути ${formatDuration(route.durationMinutes)}`));
+    if(route.kind==='ship')info.append(node('span','',`Стоянка в порту: ${formatDuration(route.dockMinutes)}`));
+    const journey=route.origin&&route.destination?`${route.origin.name} → ${route.destination.name}`:(route.direction==='return'?'Бэклунд → Тинген':'Тинген → Бэклунд');
+    const docked=route.phase==='docked';
+    const movement=docked?`В порту: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
+    const status=route.enabled?`${movement}${state.running?'':' · пауза'}`:'Скрыт на карте';
+    const remaining=docked?`Отправление через ${formatDuration(route.nextDepartureMinutes)}`:`До прибытия: ${formatDuration(route.remainingMinutes)} · ${formatDistance(route.remainingKm)} км`;
+    const actions=node('div','entity-actions');actions.append(button('↗ Показать рейс','move-button',()=>focusVoyage(route.id),`Показать рейс: ${route.name}`));
+    card.append(heading,node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`${remaining} игрового времени`),actions);
     list.append(card);
   }
 }
