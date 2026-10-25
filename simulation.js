@@ -2,14 +2,13 @@
 (function () {
   'use strict';
   const SVG_NS = 'http://www.w3.org/2000/svg';
-  const routeDefinitions = [
-    { id: 'sea-east', kind: 'ship', name: 'Почтовый пароход', period: 420, offset: 0,
-      points: [[54, 36.5], [57.5, 39], [62, 37], [66, 42], [61, 46], [58, 47]] },
-    { id: 'sea-west', kind: 'ship', name: 'Торговое судно', period: 540, offset: 180,
-      points: [[49, 35], [43, 38], [38, 45], [43, 51], [51, 48], [54, 48]] },
-    { id: 'rail-loen', kind: 'train', name: 'Экспресс Лоэна', period: 180, offset: 35,
-      points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] }
-  ];
+  const travel = window.LotMTravel;
+  if (!travel) throw new Error('Load travel.js before simulation.js');
+  const routeDefinitions = travel.routes;
+  function speedLabel(route) {
+    const kmh = route.speedKmh.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+    return route.speedKnots === null ? `${kmh} км/ч` : `${route.speedKnots} узлов · ${kmh} км/ч`;
+  }
   const icons = {
     ship: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14l9 3 9-3-3 6H6zM7 13V8h10v5M10 8V4h4v4M2 22c2-2 3 1 5 0s3-1 5 0 3 1 5 0 3-1 5 0"/></svg>',
     train: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="15" rx="3"/><path d="M7 10h10M12 4v6M8 18l-3 4m11-4 3 4M7 21h10"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>'
@@ -40,22 +39,9 @@
     path.setAttribute('points', definition.points.map(([x, y]) => `${x * 10},${y * 5.14}`).join(' '));
     path.setAttribute('class', `simulation-route ${definition.kind}`);
     const title = document.createElementNS(SVG_NS, 'title');
-    title.textContent = `${definition.name} — условный маршрут кампании`;
+    title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
     path.append(title);
     return path;
-  }
-  function sample(points, progress) {
-    const lengths = points.slice(1).map((p, i) => Math.hypot((p[0] - points[i][0]) * 10, (p[1] - points[i][1]) * 5.14));
-    let distance = progress * lengths.reduce((sum, length) => sum + length, 0);
-    for (let i = 0; i < lengths.length; i++) {
-      if (distance <= lengths[i] || i === lengths.length - 1) {
-        const fraction = lengths[i] ? distance / lengths[i] : 0;
-        return { x: points[i][0] + (points[i + 1][0] - points[i][0]) * fraction,
-          y: points[i][1] + (points[i + 1][1] - points[i][1]) * fraction };
-      }
-      distance -= lengths[i];
-    }
-    return { x: points[0][0], y: points[0][1] };
   }
   window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival }) {
     injectStyles();
@@ -65,8 +51,8 @@
       const marker = document.createElement('div');
       marker.className = `transport-marker ${definition.kind}`;
       marker.setAttribute('role', 'img');
-      marker.setAttribute('aria-label', `${definition.name} — условный маршрут кампании`);
-      marker.title = `${definition.name} · Условный маршрут кампании`;
+      marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
+      marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
       marker.innerHTML = icons[definition.kind];
       transportLayer.append(marker);
       return { definition, marker, path, lastLeg: null };
@@ -129,27 +115,24 @@
     }
     return {
       update({ minutes = 0, ships = true, trains = true, events = [] } = {}) {
-        const time = Number.isFinite(minutes) ? minutes : 0;
-        transport.forEach(item => {
+        const statuses = transport.map(item => {
           const { definition, marker, path } = item;
           const enabled = definition.kind === 'ship' ? ships : trains;
+          const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
           path.toggleAttribute('hidden', !enabled);
-          if (!enabled) return;
-          const elapsed = time + definition.offset;
-          const leg = Math.floor(elapsed / definition.period);
-          const part = ((elapsed % definition.period) + definition.period) % definition.period / definition.period;
-          const progress = ((leg % 2) + 2) % 2 ? 1 - part : part;
-          const position = sample(definition.points, progress);
-          marker.style.left = `${position.x}%`;
-          marker.style.top = `${position.y}%`;
+          marker.style.left = `${status.x}%`;
+          marker.style.top = `${status.y}%`;
           marker.dataset.route = definition.id;
-          if (item.lastLeg !== null && item.lastLeg !== leg && Math.abs(leg - item.lastLeg) === 1 && typeof onArrival === 'function') {
-            onArrival({ id: definition.id, name: definition.name, kind: definition.kind });
+          if (enabled && item.lastLeg !== null && status.leg > item.lastLeg && typeof onArrival === 'function') {
+            onArrival({ id: definition.id, name: definition.name, kind: definition.kind,
+              arrivals: status.leg - item.lastLeg });
           }
-          item.lastLeg = leg;
+          item.lastLeg = status.leg;
+          return { ...status, enabled };
         });
         updateWeather(Array.isArray(events) ? events : []);
+        return statuses;
       },
       destroy() {
         transport.forEach(item => { item.marker.remove(); item.path.remove(); });

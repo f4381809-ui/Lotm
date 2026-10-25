@@ -11,13 +11,12 @@ const $ = selector => document.querySelector(selector);
 const viewport = $('#viewport'), world = $('#world');
 const STORAGE_KEY = 'lotm-living-atlas-v1';
 const BASE_GAME_MINUTES_PER_SECOND = 0.2;
-const TRANSPORT_MINUTES_PER_SECOND = 4;
 const CLOCK_VERSION = 2;
 const TIME_SPEEDS = [0.25,1,5,15];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const id = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const state = {minutes:540,transportMinutes:540,clockVersion:CLOCK_VERSION,running:true,speed:1,ships:true,trains:true,players:[],events:[],journal:[]};
+const state = {minutes:540,travelEpochMinutes:540,clockVersion:CLOCK_VERSION,running:true,speed:1,ships:true,trains:true,players:[],events:[],journal:[]};
 let storageAvailable = true;
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -25,7 +24,7 @@ try {
     if (finite(saved.minutes) && saved.minutes >= 0) state.minutes = saved.minutes;
     // Old saves keep the entire session, but start at the new relaxed pace once.
     if (saved.clockVersion === CLOCK_VERSION && TIME_SPEEDS.includes(saved.speed)) state.speed = saved.speed;
-    state.transportMinutes = finite(saved.transportMinutes) && saved.transportMinutes >= 0 ? saved.transportMinutes : state.minutes;
+    state.travelEpochMinutes = finite(saved.travelEpochMinutes) && saved.travelEpochMinutes >= 0 && saved.travelEpochMinutes <= state.minutes ? saved.travelEpochMinutes : state.minutes;
     for (const key of ['running','ships','trains']) if (typeof saved[key] === 'boolean') state[key] = saved[key];
     const validPoint = p => p && typeof p.id === 'string' && typeof p.name === 'string' && p.name.trim() && finite(p.x) && finite(p.y) && p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100;
     state.players = (Array.isArray(saved.players) ? saved.players : []).filter(p => validPoint(p) && /^#[a-f\d]{6}$/i.test(p.color)).slice(0,30).map(p => ({id:p.id,name:p.name.slice(0,40),color:p.color,x:p.x,y:p.y}));
@@ -220,10 +219,32 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){setMode(null);closeDetail();}
 });
 const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer')});
+function formatDuration(minutes) {
+  const total=Math.max(0,Math.ceil(minutes));
+  const days=Math.floor(total/1440),hours=Math.floor((total%1440)/60),rest=total%60;
+  return [days?`${days} дн.`:'',hours?`${hours} ч`:'',rest?`${rest} мин`:''].filter(Boolean).join(' ') || '0 мин';
+}
+function formatDistance(km) { return km.toLocaleString('ru-RU',{maximumFractionDigits:1}); }
+function renderTravel(statuses) {
+  if(!Array.isArray(statuses))return;
+  const list=$('#travel-list');list.replaceChildren();
+  for(const route of statuses){
+    const card=node('article','entity-card travel-card');
+    const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
+    const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
+    const progress=node('progress');progress.max=1;progress.value=route.progress;progress.setAttribute('aria-label',`Пройдено по маршруту: ${route.name}`);
+    const info=node('div','travel-info');
+    info.append(node('span','',`${formatDistance(route.totalKm)} км в одну сторону`),node('span','',`В одну сторону: ${formatDuration(route.durationMinutes)}`));
+    const status=route.enabled?(state.running?(route.direction==='return'?'Обратный путь':'В пути'):'Время на паузе'):'Скрыт на карте';
+    card.append(heading,node('p','travel-speed',speed),info,progress,node('p','travel-remaining',`${status} · осталось ${formatDistance(route.remainingKm)} км`),node('p','entity-meta',`До прибытия: ${formatDuration(route.remainingMinutes)} игрового времени`));
+    list.append(card);
+  }
+}
 let lastMinute=-1;
 function updateWorld(force=false) {
-  simulation.update({minutes:state.transportMinutes,ships:state.ships,trains:state.trains,events:state.events});
+  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events});
   const minute=Math.floor(state.minutes);if(minute===lastMinute&&!force)return;lastMinute=minute;
+  renderTravel(travelStatuses);
   const hour=(state.minutes%1440)/60;
   const phase=hour>=7&&hour<18?'day':hour>=18&&hour<20?'dusk':hour>=5&&hour<7?'dawn':'night';
   const label={day:'День',night:'Ночь',dawn:'Рассвет',dusk:'Сумерки'}[phase];
@@ -263,8 +284,6 @@ function tick(now) {
   const elapsed=Math.min((now-lastTick)/1000,1);lastTick=now;
   if(state.running){
     state.minutes+=elapsed*BASE_GAME_MINUTES_PER_SECOND*state.speed;
-    // Keep schematic travel visible while the world's day/night cycle stays slow.
-    state.transportMinutes+=elapsed*TRANSPORT_MINUTES_PER_SECOND*state.speed;
   }
   updateWorld();
   if(now-lastSave>5000){save();lastSave=now;}

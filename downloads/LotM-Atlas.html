@@ -8,6 +8,9 @@
 .marker,.player-marker,#transport-layer .transport-marker{transform:translate(-50%,-50%) scale(var(--marker-scale,1))}
 #routes-layer .simulation-route.ship{stroke-width:calc(1.4px * var(--marker-scale,1));stroke-dasharray:calc(5px * var(--marker-scale,1)) calc(6px * var(--marker-scale,1))}
 #routes-layer .simulation-route.train{stroke-width:calc(2px * var(--marker-scale,1));stroke-dasharray:calc(2px * var(--marker-scale,1)) calc(3px * var(--marker-scale,1))}
+.tabs{grid-template-columns:repeat(4,minmax(0,1fr))}.tabs button{font-size:10px;padding:7px 1px}.tabs span{margin-left:2px}
+.scale-info{border:1px solid #566248;background:#222d20;border-radius:6px;padding:12px;color:#d5c38e}.scale-info strong{font-size:13px;font-weight:500;display:block}.scale-info span{font-size:10px;color:var(--muted);display:block;margin-top:4px}
+.travel-card h3{font-size:12px;font-weight:500;margin:0}.travel-speed{font-size:12px;color:var(--gold);margin:12px 0 8px}.travel-info{display:flex;flex-direction:column;gap:4px;font-size:10px;color:var(--muted)}.travel-card progress{width:100%;height:5px;appearance:none;margin:14px 0 4px;accent-color:var(--gold);border:0;border-radius:4px;background:#343e2f;overflow:hidden}.travel-card progress::-webkit-progress-bar{background:#343e2f}.travel-card progress::-webkit-progress-value{background:var(--gold)}.travel-card progress::-moz-progress-bar{background:var(--gold)}.travel-remaining{font-size:10px;color:#c6ceba;margin:6px 0 0}
 
 </style></head>
 <body>
@@ -15,7 +18,7 @@
   <a class="brand" href="#"><span class="sigil">✧</span><span>LORD OF MYSTERIES<small>ЖИВОЙ АТЛАС · ПЯТАЯ ЭПОХА</small></span></a>
   <div class="chapter">ИНСТРУМЕНТЫ МАСТЕРА</div><h1>Мир приходит<br><em>в движение.</em></h1>
   <p class="intro">Ведите игроков сквозь туман.<br>Управляйте временем и погодой.</p>
-  <nav class="tabs" aria-label="Разделы атласа"><button class="active" data-tab="players" aria-pressed="true">Игроки <span id="player-count">0</span></button><button data-tab="events" aria-pressed="false">События <span id="event-count">0</span></button><button data-tab="places" aria-pressed="false">Места</button></nav>
+  <nav class="tabs" aria-label="Разделы атласа"><button class="active" data-tab="players" aria-pressed="true">Игроки <span id="player-count">0</span></button><button data-tab="events" aria-pressed="false">События <span id="event-count">0</span></button><button data-tab="places" aria-pressed="false">Места</button><button data-tab="travel" aria-pressed="false">Транспорт</button></nav>
   <div class="sidebar-content">
     <section id="tab-players" class="tab-panel">
       <div class="section-label">УЧАСТНИКИ ПУТЕШЕСТВИЯ</div>
@@ -29,6 +32,13 @@
       <p class="form-note">Выберите центр зоны на карте. Дождь закончится по игровому времени. Переход день / ночь переводит часы вперёд; на паузе время не идёт.</p><div id="events-list" class="entity-list"></div>
       <div class="section-label journal-label">ЖУРНАЛ МИРА</div><ol id="journal"></ol>
     </section>
+    <section id="tab-travel" class="tab-panel" hidden>
+      <div class="section-label">ПАРОВЫЕ МАРШРУТЫ</div>
+      <div class="scale-info"><strong>1 клетка = 1500 км²</strong><span>Сторона клетки ≈ 38,7 км</span></div>
+      <p class="form-note">Корабли и поезд идут по игровым часам. Скорости крейсерские, для паровой эпохи. Переход к дню или ночи продвигает и путешествие.</p>
+      <div id="travel-list" class="entity-list"></div>
+      <p class="form-note">Расчёт по длине маршрута на сетке, без портовых стоянок и задержек. Линии маршрутов условные.</p>
+    </section>
     <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
   </div>
   <div class="aside-bottom"><span class="status"></span><span id="save-status">Сохраняется в этом браузере</span></div>
@@ -38,7 +48,7 @@
   <section class="world-controls" aria-label="Время и транспорт">
     <div class="clock-block"><span id="phase-icon" aria-hidden="true">☀</span><div><div class="clock-line"><strong id="world-time">09:00</strong><span id="world-day">День 1</span></div><span id="phase-label">День · мир в движении</span></div></div>
     <div class="time-controls"><div class="segmented" aria-label="Время суток"><button id="day" title="Перевести время вперёд до утра" aria-pressed="true">☀ День</button><button id="night" title="Перевести время вперёд до ночи" aria-pressed="false">☾ Ночь</button></div><button id="pause" class="square" aria-label="Приостановить время" title="Приостановить время">Ⅱ</button><label class="speed-label"><span class="sr-only">Скорость времени</span><select id="speed" aria-label="Скорость времени"><option value="0.25">¼×</option><option value="1">1×</option><option value="5">5×</option><option value="15">15×</option></select></label></div>
-    <div class="transport-controls" title="Транспорт движется схематично, независимо от смены дня и ночи"><label><input type="checkbox" id="ships" checked><span>⚓ Корабли</span></label><label><input type="checkbox" id="trains" checked><span>▰ Поезда</span></label></div>
+    <div class="transport-controls" title="Транспорт движется по игровому времени с крейсерской скоростью паровой эпохи"><label><input type="checkbox" id="ships" checked><span>⚓ Корабли</span></label><label><input type="checkbox" id="trains" checked><span>▰ Поезда</span></label></div>
   </section>
   <section class="map" id="viewport" aria-label="Интерактивная карта мира">
     <div class="map-grid"></div>
@@ -46,25 +56,125 @@
     <div class="map-label"><span class="status"></span> АТЛАС HD <span>·</span><span id="map-phase">ДНЕВНОЙ СВЕТ</span></div>
     <div id="placement-banner" hidden><span id="placement-text"></span><button id="cancel-placement" aria-label="Отменить размещение">Отмена ×</button></div>
     <div class="compass">N<span>✧</span>S</div><div class="zoom"><button id="plus" aria-label="Приблизить">+</button><span id="zoom-level">100%</span><button id="minus" aria-label="Отдалить">−</button></div>
-    <div class="map-legend"><span><i class="legend-line sea"></i> Морской путь</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Условные маршруты для игры</small></div>
+    <div class="map-legend"><span><i class="legend-line sea"></i> Морской путь</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
     <div class="hint" id="map-hint">Перетаскивайте карту · Колесо / + − для масштаба</div><div id="detail" hidden></div>
   </section>
   <footer><span id="clock-hint">Сутки ≈ 2 ч · 1 с = 12 игровых секунд</span><span>Игровая сессия хранится только в этом браузере</span></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
+/* Flat game-map distances: a grid cell has an area of 1500 km². */
+(function (root, factory) {
+  'use strict';
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.LotMTravel = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  const SCALE = Object.freeze({
+    cellAreaKm2: 1500,
+    cellSideKm: Math.sqrt(1500),
+    cellPixels: 200,
+    imageWidth: 7400,
+    imageHeight: 3800
+  });
+  const KM_PER_NAUTICAL_MILE = 1.852;
+
+  function distanceKm(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) ||
+        ![a[0], a[1], b[0], b[1]].every(Number.isFinite)) {
+      throw new TypeError('Map points must contain finite x/y percentages');
+    }
+    const dxCells = (b[0] - a[0]) / 100 * SCALE.imageWidth / SCALE.cellPixels;
+    const dyCells = (b[1] - a[1]) / 100 * SCALE.imageHeight / SCALE.cellPixels;
+    return Math.hypot(dxCells, dyCells) * SCALE.cellSideKm;
+  }
+
+  function buildRoute(definition) {
+    const points = definition.points.map(point => Object.freeze([...point]));
+    const segmentsKm = points.slice(1).map((point, i) => distanceKm(points[i], point));
+    const totalKm = segmentsKm.reduce((sum, distance) => sum + distance, 0);
+    const speedKnots = definition.kind === 'ship' ? definition.speedKnots : null;
+    const speedKmh = speedKnots === null ? definition.speedKmh : speedKnots * KM_PER_NAUTICAL_MILE;
+    if (points.length < 2 || !(speedKmh > 0) || !Number.isFinite(speedKmh) || !(totalKm > 0)) {
+      throw new RangeError('A route needs positive length and cruising speed');
+    }
+    return Object.freeze({
+      id: definition.id,
+      kind: definition.kind,
+      name: definition.name,
+      speedKnots,
+      speedKmh,
+      totalKm,
+      durationMinutes: totalKm / speedKmh * 60,
+      points: Object.freeze(points),
+      segmentsKm: Object.freeze(segmentsKm)
+    });
+  }
+
+  const routes = Object.freeze([
+    buildRoute({ id: 'sea-east', kind: 'ship', name: 'Почтовый пароход', speedKnots: 12,
+      points: [[54, 36.5], [57.5, 39], [62, 37], [66, 42], [61, 46], [58, 47]] }),
+    buildRoute({ id: 'sea-west', kind: 'ship', name: 'Грузовой пароход', speedKnots: 8,
+      points: [[49, 42], [43, 38], [38, 45], [43, 51], [51, 48], [54, 48]] }),
+    buildRoute({ id: 'rail-loen', kind: 'train', name: 'Паровоз Лоэна', speedKmh: 40,
+      points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] })
+  ]);
+
+  function positionAlong(route, progress) {
+    let distance = route.totalKm * progress;
+    for (let i = 0; i < route.segmentsKm.length; i++) {
+      const length = route.segmentsKm[i];
+      if (distance <= length || i === route.segmentsKm.length - 1) {
+        const fraction = length ? Math.max(0, Math.min(1, distance / length)) : 0;
+        return {
+          x: route.points[i][0] + (route.points[i + 1][0] - route.points[i][0]) * fraction,
+          y: route.points[i][1] + (route.points[i + 1][1] - route.points[i][1]) * fraction
+        };
+      }
+      distance -= length;
+    }
+    return { x: route.points[0][0], y: route.points[0][1] };
+  }
+
+  function statusAt(route, elapsedMinutes) {
+    const time = Number.isFinite(elapsedMinutes) ? Math.max(0, elapsedMinutes) : 0;
+    const leg = Math.floor(time / route.durationMinutes);
+    const progress = (time % route.durationMinutes) / route.durationMinutes;
+    const direction = leg % 2 ? 'return' : 'outbound';
+    const position = positionAlong(route, direction === 'return' ? 1 - progress : progress);
+    return {
+      id: route.id,
+      kind: route.kind,
+      name: route.name,
+      speedKnots: route.speedKnots,
+      speedKmh: route.speedKmh,
+      totalKm: route.totalKm,
+      durationMinutes: route.durationMinutes,
+      ...position,
+      progress,
+      direction,
+      remainingKm: route.totalKm * (1 - progress),
+      remainingMinutes: route.durationMinutes * (1 - progress),
+      leg
+    };
+  }
+
+  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, routes, distanceKm, statusAt });
+});
+
+</script><script>
 /* Map simulation uses illustrative campaign routes, not canonical rail or sea charts. */
 (function () {
   'use strict';
   const SVG_NS = 'http://www.w3.org/2000/svg';
-  const routeDefinitions = [
-    { id: 'sea-east', kind: 'ship', name: 'Почтовый пароход', period: 420, offset: 0,
-      points: [[54, 36.5], [57.5, 39], [62, 37], [66, 42], [61, 46], [58, 47]] },
-    { id: 'sea-west', kind: 'ship', name: 'Торговое судно', period: 540, offset: 180,
-      points: [[49, 35], [43, 38], [38, 45], [43, 51], [51, 48], [54, 48]] },
-    { id: 'rail-loen', kind: 'train', name: 'Экспресс Лоэна', period: 180, offset: 35,
-      points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] }
-  ];
+  const travel = window.LotMTravel;
+  if (!travel) throw new Error('Load travel.js before simulation.js');
+  const routeDefinitions = travel.routes;
+  function speedLabel(route) {
+    const kmh = route.speedKmh.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
+    return route.speedKnots === null ? `${kmh} км/ч` : `${route.speedKnots} узлов · ${kmh} км/ч`;
+  }
   const icons = {
     ship: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14l9 3 9-3-3 6H6zM7 13V8h10v5M10 8V4h4v4M2 22c2-2 3 1 5 0s3-1 5 0 3 1 5 0 3-1 5 0"/></svg>',
     train: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="15" rx="3"/><path d="M7 10h10M12 4v6M8 18l-3 4m11-4 3 4M7 21h10"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>'
@@ -95,22 +205,9 @@
     path.setAttribute('points', definition.points.map(([x, y]) => `${x * 10},${y * 5.14}`).join(' '));
     path.setAttribute('class', `simulation-route ${definition.kind}`);
     const title = document.createElementNS(SVG_NS, 'title');
-    title.textContent = `${definition.name} — условный маршрут кампании`;
+    title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
     path.append(title);
     return path;
-  }
-  function sample(points, progress) {
-    const lengths = points.slice(1).map((p, i) => Math.hypot((p[0] - points[i][0]) * 10, (p[1] - points[i][1]) * 5.14));
-    let distance = progress * lengths.reduce((sum, length) => sum + length, 0);
-    for (let i = 0; i < lengths.length; i++) {
-      if (distance <= lengths[i] || i === lengths.length - 1) {
-        const fraction = lengths[i] ? distance / lengths[i] : 0;
-        return { x: points[i][0] + (points[i + 1][0] - points[i][0]) * fraction,
-          y: points[i][1] + (points[i + 1][1] - points[i][1]) * fraction };
-      }
-      distance -= lengths[i];
-    }
-    return { x: points[0][0], y: points[0][1] };
   }
   window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival }) {
     injectStyles();
@@ -120,8 +217,8 @@
       const marker = document.createElement('div');
       marker.className = `transport-marker ${definition.kind}`;
       marker.setAttribute('role', 'img');
-      marker.setAttribute('aria-label', `${definition.name} — условный маршрут кампании`);
-      marker.title = `${definition.name} · Условный маршрут кампании`;
+      marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
+      marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
       marker.innerHTML = icons[definition.kind];
       transportLayer.append(marker);
       return { definition, marker, path, lastLeg: null };
@@ -184,27 +281,24 @@
     }
     return {
       update({ minutes = 0, ships = true, trains = true, events = [] } = {}) {
-        const time = Number.isFinite(minutes) ? minutes : 0;
-        transport.forEach(item => {
+        const statuses = transport.map(item => {
           const { definition, marker, path } = item;
           const enabled = definition.kind === 'ship' ? ships : trains;
+          const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
           path.toggleAttribute('hidden', !enabled);
-          if (!enabled) return;
-          const elapsed = time + definition.offset;
-          const leg = Math.floor(elapsed / definition.period);
-          const part = ((elapsed % definition.period) + definition.period) % definition.period / definition.period;
-          const progress = ((leg % 2) + 2) % 2 ? 1 - part : part;
-          const position = sample(definition.points, progress);
-          marker.style.left = `${position.x}%`;
-          marker.style.top = `${position.y}%`;
+          marker.style.left = `${status.x}%`;
+          marker.style.top = `${status.y}%`;
           marker.dataset.route = definition.id;
-          if (item.lastLeg !== null && item.lastLeg !== leg && Math.abs(leg - item.lastLeg) === 1 && typeof onArrival === 'function') {
-            onArrival({ id: definition.id, name: definition.name, kind: definition.kind });
+          if (enabled && item.lastLeg !== null && status.leg > item.lastLeg && typeof onArrival === 'function') {
+            onArrival({ id: definition.id, name: definition.name, kind: definition.kind,
+              arrivals: status.leg - item.lastLeg });
           }
-          item.lastLeg = leg;
+          item.lastLeg = status.leg;
+          return { ...status, enabled };
         });
         updateWeather(Array.isArray(events) ? events : []);
+        return statuses;
       },
       destroy() {
         transport.forEach(item => { item.marker.remove(); item.path.remove(); });
@@ -229,13 +323,12 @@ const $ = selector => document.querySelector(selector);
 const viewport = $('#viewport'), world = $('#world');
 const STORAGE_KEY = 'lotm-living-atlas-v1';
 const BASE_GAME_MINUTES_PER_SECOND = 0.2;
-const TRANSPORT_MINUTES_PER_SECOND = 4;
 const CLOCK_VERSION = 2;
 const TIME_SPEEDS = [0.25,1,5,15];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const id = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const state = {minutes:540,transportMinutes:540,clockVersion:CLOCK_VERSION,running:true,speed:1,ships:true,trains:true,players:[],events:[],journal:[]};
+const state = {minutes:540,travelEpochMinutes:540,clockVersion:CLOCK_VERSION,running:true,speed:1,ships:true,trains:true,players:[],events:[],journal:[]};
 let storageAvailable = true;
 try {
   const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -243,7 +336,7 @@ try {
     if (finite(saved.minutes) && saved.minutes >= 0) state.minutes = saved.minutes;
     // Old saves keep the entire session, but start at the new relaxed pace once.
     if (saved.clockVersion === CLOCK_VERSION && TIME_SPEEDS.includes(saved.speed)) state.speed = saved.speed;
-    state.transportMinutes = finite(saved.transportMinutes) && saved.transportMinutes >= 0 ? saved.transportMinutes : state.minutes;
+    state.travelEpochMinutes = finite(saved.travelEpochMinutes) && saved.travelEpochMinutes >= 0 && saved.travelEpochMinutes <= state.minutes ? saved.travelEpochMinutes : state.minutes;
     for (const key of ['running','ships','trains']) if (typeof saved[key] === 'boolean') state[key] = saved[key];
     const validPoint = p => p && typeof p.id === 'string' && typeof p.name === 'string' && p.name.trim() && finite(p.x) && finite(p.y) && p.x >= 0 && p.x <= 100 && p.y >= 0 && p.y <= 100;
     state.players = (Array.isArray(saved.players) ? saved.players : []).filter(p => validPoint(p) && /^#[a-f\d]{6}$/i.test(p.color)).slice(0,30).map(p => ({id:p.id,name:p.name.slice(0,40),color:p.color,x:p.x,y:p.y}));
@@ -438,10 +531,32 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){setMode(null);closeDetail();}
 });
 const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer')});
+function formatDuration(minutes) {
+  const total=Math.max(0,Math.ceil(minutes));
+  const days=Math.floor(total/1440),hours=Math.floor((total%1440)/60),rest=total%60;
+  return [days?`${days} дн.`:'',hours?`${hours} ч`:'',rest?`${rest} мин`:''].filter(Boolean).join(' ') || '0 мин';
+}
+function formatDistance(km) { return km.toLocaleString('ru-RU',{maximumFractionDigits:1}); }
+function renderTravel(statuses) {
+  if(!Array.isArray(statuses))return;
+  const list=$('#travel-list');list.replaceChildren();
+  for(const route of statuses){
+    const card=node('article','entity-card travel-card');
+    const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
+    const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
+    const progress=node('progress');progress.max=1;progress.value=route.progress;progress.setAttribute('aria-label',`Пройдено по маршруту: ${route.name}`);
+    const info=node('div','travel-info');
+    info.append(node('span','',`${formatDistance(route.totalKm)} км в одну сторону`),node('span','',`В одну сторону: ${formatDuration(route.durationMinutes)}`));
+    const status=route.enabled?(state.running?(route.direction==='return'?'Обратный путь':'В пути'):'Время на паузе'):'Скрыт на карте';
+    card.append(heading,node('p','travel-speed',speed),info,progress,node('p','travel-remaining',`${status} · осталось ${formatDistance(route.remainingKm)} км`),node('p','entity-meta',`До прибытия: ${formatDuration(route.remainingMinutes)} игрового времени`));
+    list.append(card);
+  }
+}
 let lastMinute=-1;
 function updateWorld(force=false) {
-  simulation.update({minutes:state.transportMinutes,ships:state.ships,trains:state.trains,events:state.events});
+  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events});
   const minute=Math.floor(state.minutes);if(minute===lastMinute&&!force)return;lastMinute=minute;
+  renderTravel(travelStatuses);
   const hour=(state.minutes%1440)/60;
   const phase=hour>=7&&hour<18?'day':hour>=18&&hour<20?'dusk':hour>=5&&hour<7?'dawn':'night';
   const label={day:'День',night:'Ночь',dawn:'Рассвет',dusk:'Сумерки'}[phase];
@@ -481,8 +596,6 @@ function tick(now) {
   const elapsed=Math.min((now-lastTick)/1000,1);lastTick=now;
   if(state.running){
     state.minutes+=elapsed*BASE_GAME_MINUTES_PER_SECOND*state.speed;
-    // Keep schematic travel visible while the world's day/night cycle stays slow.
-    state.transportMinutes+=elapsed*TRANSPORT_MINUTES_PER_SECOND*state.speed;
   }
   updateWorld();
   if(now-lastSave>5000){save();lastSave=now;}
