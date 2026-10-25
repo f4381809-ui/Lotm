@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#111713"><title>LotM — Живой атлас</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<aside>
+  <a class="brand" href="./"><span class="sigil">✧</span><span>LORD OF MYSTERIES<small>ЖИВОЙ АТЛАС · ПЯТАЯ ЭПОХА</small></span></a>
+  <div class="chapter">ИНСТРУМЕНТЫ МАСТЕРА</div><h1>Мир приходит<br><em>в движение.</em></h1>
+  <p class="intro">Ведите игроков сквозь туман.<br>Управляйте временем и погодой.</p>
+  <nav class="tabs" aria-label="Разделы атласа"><button class="active" data-tab="players" aria-pressed="true">Игроки <span id="player-count">0</span></button><button data-tab="events" aria-pressed="false">События <span id="event-count">0</span></button><button data-tab="places" aria-pressed="false">Места</button></nav>
+  <div class="sidebar-content">
+    <section id="tab-players" class="tab-panel">
+      <div class="section-label">УЧАСТНИКИ ПУТЕШЕСТВИЯ</div>
+      <form id="player-form"><label for="player-name">Имя игрока или персонажа</label><div class="input-row"><input id="player-name" placeholder="Например, Клейн" maxlength="40" required autocomplete="off"><input id="player-color" type="color" value="#d3b575" aria-label="Цвет игрока" title="Цвет игрока"></div><button class="primary full" type="submit">＋ Поставить игрока на карте</button></form>
+      <p class="form-note">Создайте отметку кликом по карте. Затем перетаскивайте её или нажмите «Переместить».</p>
+      <div id="players-list" class="entity-list"></div>
+    </section>
+    <section id="tab-events" class="tab-panel" hidden>
+      <div class="section-label">ПОГОДА И СОБЫТИЯ</div>
+      <form id="event-form"><label for="event-name">Название дождя</label><input id="event-name" placeholder="Дождь над Лоэном" maxlength="60" value="Дождь" required autocomplete="off"><div class="form-grid"><div><label for="rain-intensity">Сила дождя</label><select id="rain-intensity"><option value="light">Морось</option><option value="medium" selected>Дождь</option><option value="heavy">Ливень</option></select></div><div><label for="rain-duration">Игровых часов</label><select id="rain-duration"><option value="1">1 час</option><option value="3" selected>3 часа</option><option value="6">6 часов</option><option value="12">12 часов</option><option value="0">Без ограничения</option></select></div></div><label class="range-label" for="rain-radius">Размер зоны <span id="radius-value">8%</span></label><input id="rain-radius" type="range" min="3" max="20" value="8"><button class="primary full" type="submit">☂ Добавить зону дождя</button></form>
+      <p class="form-note">Выберите центр зоны на карте. Дождь закончится по игровому времени. Переход день / ночь переводит часы вперёд; на паузе время не идёт.</p><div id="events-list" class="entity-list"></div>
+      <div class="section-label journal-label">ЖУРНАЛ МИРА</div><ol id="journal"></ol>
+    </section>
+    <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
+  </div>
+  <div class="aside-bottom"><span class="status"></span><span id="save-status">Сохраняется в этом браузере</span></div>
+</aside>
+<main>
+  <header><div><span class="eyebrow">THE WORLD OF LOTM</span><h2>Карта живого мира</h2></div><div class="header-actions"><span class="edition">НЕОФИЦИАЛЬНЫЙ АТЛАС</span><button id="reset" class="outline">↺ <span>Общий вид</span></button></div></header>
+  <section class="world-controls" aria-label="Время и транспорт">
+    <div class="clock-block"><span id="phase-icon" aria-hidden="true">☀</span><div><div class="clock-line"><strong id="world-time">09:00</strong><span id="world-day">День 1</span></div><span id="phase-label">День · мир в движении</span></div></div>
+    <div class="time-controls"><div class="segmented" aria-label="Время суток"><button id="day" title="Перевести время вперёд до утра" aria-pressed="true">☀ День</button><button id="night" title="Перевести время вперёд до ночи" aria-pressed="false">☾ Ночь</button></div><button id="pause" class="square" aria-label="Приостановить время" title="Приостановить время">Ⅱ</button><label class="speed-label"><span class="sr-only">Скорость времени</span><select id="speed" aria-label="Скорость времени"><option value="1">1×</option><option value="5">5×</option><option value="15">15×</option></select></label></div>
+    <div class="transport-controls"><label><input type="checkbox" id="ships" checked><span>⚓ Корабли</span></label><label><input type="checkbox" id="trains" checked><span>▰ Поезда</span></label></div>
+  </section>
+  <section class="map" id="viewport" aria-label="Интерактивная карта мира">
+    <div class="map-grid"></div>
+    <div id="world"><img src="World_Map.webp" alt="Карта мира Повелителя тайн" draggable="false"><div id="night-overlay"></div><svg id="routes-layer" viewBox="0 0 1000 514" preserveAspectRatio="none" aria-hidden="true"></svg><div id="weather-layer"></div><div id="transport-layer"></div><div id="markers"></div><div id="players-layer"></div></div>
+    <div class="map-label"><span class="status"></span> ЖИВОЙ АТЛАС <span>·</span><span id="map-phase">ДНЕВНОЙ СВЕТ</span></div>
+    <div id="placement-banner" hidden><span id="placement-text"></span><button id="cancel-placement" aria-label="Отменить размещение">Отмена ×</button></div>
+    <div class="compass">N<span>✧</span>S</div><div class="zoom"><button id="plus" aria-label="Приблизить">+</button><span id="zoom-level">100%</span><button id="minus" aria-label="Отдалить">−</button></div>
+    <div class="map-legend"><span><i class="legend-line sea"></i> Морской путь</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Условные маршруты для игры</small></div>
+    <div class="hint" id="map-hint">Перетаскивайте карту · Колесо / + − для масштаба</div><div id="detail" hidden></div>
+  </section>
+  <footer><span id="clock-hint">1 секунда = 4 игровые минуты</span><span>Игровая сессия хранится только в этом браузере</span></footer>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="simulation.js"></script><script src="app.js"></script>
+</body></html>
