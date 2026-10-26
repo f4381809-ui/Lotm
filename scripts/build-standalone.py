@@ -15,7 +15,7 @@ def embed_image(match):
     return 'src="data:' + mime + ';base64,' + b64encode(path.read_bytes()).decode('ascii') + '"'
 
 html = re.sub(r'src="([^"\s]+\.(?:webp|png|jpg|jpeg))"', embed_image, html)
-for name in ('travel.js', 'simulation.js', 'app.js'):
+for name in ('island-network.js', 'travel.js', 'simulation.js', 'app.js'):
     script = (root / name).read_text(encoding='utf-8').replace('</script', '<\\/script')
     html = html.replace(f'<script src="{name}"></script>', f'<script>\n{script}\n</script>')
 html = html.replace('class="brand" href="./"', 'class="brand" href="#"')

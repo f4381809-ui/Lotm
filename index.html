@@ -24,8 +24,8 @@
       <div class="section-label">ПАРОВЫЕ МАРШРУТЫ</div>
       <div class="scale-info"><strong>1 клетка = 1500 км²</strong><span>Сторона клетки ≈ 38,7 км</span></div>
       <p class="form-note">Корабли и поезд идут по игровым часам. Скорости крейсерские, для паровой эпохи. Переход к дню или ночи продвигает и путешествие.</p>
-      <div id="travel-list" class="entity-list"></div>
-      <p class="form-note">Морские рейсы соединяют порты. Время рейса включает переход и стоянку перед отправлением. Плавные фарватеры проложены по карте для игры.</p>
+      <p id="network-summary" class="network-summary"></p><label class="line-label" for="shipping-line">Морская линия</label><select id="shipping-line"><option value="all">Все морские линии</option></select><div id="travel-list" class="entity-list"></div>
+      <p class="form-note">Острова и гавани взяты с карты мира книги. Морские линии и расписания созданы для игры; у островов без гавани предусмотрен рейд.</p>
     </section>
     <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
   </div>
@@ -50,5 +50,5 @@
   <footer><span id="clock-hint">Сутки ≈ 2 ч · 1 с = 12 игровых секунд</span><span>Игровая сессия хранится только в этом браузере</span></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
-<script src="travel.js"></script><script src="simulation.js"></script><script src="app.js"></script>
+<script src="island-network.js"></script><script src="travel.js"></script><script src="simulation.js"></script><script src="app.js"></script>
 </body></html>

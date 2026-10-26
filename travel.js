@@ -1,11 +1,16 @@
 /* Flat game-map distances: a grid cell has an area of 1500 km². */
 (function (root, factory) {
   'use strict';
-  const api = factory();
-  if (typeof module === 'object' && module.exports) module.exports = api;
+  const commonJS = typeof module === 'object' && module.exports;
+  const network = commonJS ? require('./island-network.js') : root.LotMIslandNetwork;
+  const api = factory(network);
+  if (commonJS) module.exports = api;
   else root.LotMTravel = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (network) {
   'use strict';
+  if (!network || !Array.isArray(network.ports) || !Array.isArray(network.circuits)) {
+    throw new Error('Load island-network.js before travel.js');
+  }
   const SCALE = Object.freeze({
     cellAreaKm2: 1500,
     cellSideKm: Math.sqrt(1500),
@@ -48,7 +53,15 @@
       append(entry);
       // At most .75 source pixels per sample around a bend; movement follows the
       // same curve by measured arc length, rather than speeding up at control points.
-      const steps = Math.max(12, Math.ceil(cut * 2 / .75));
+      const inX = corner[0] - entry[0], inY = corner[1] - entry[1];
+      const outX = exit[0] - corner[0], outY = exit[1] - corner[1];
+      const cosine = Math.max(-1, Math.min(1, (inX * outX + inY * outY) / (cut * cut)));
+      const turn = Math.acos(cosine);
+      if (Math.PI - turn < 1e-6) throw new RangeError('A coastal waypoint cannot reverse course in place');
+      // Also bound heading increments on sharper bends, even when their safe
+      // clearance radius is small. This keeps the tangent visibly continuous.
+      const turnSteps = Math.ceil(2 * Math.tan(turn / 2) / (Math.PI / 90));
+      const steps = Math.max(12, Math.ceil(cut * 2 / .75), turnSteps);
       for (let step = 1; step <= steps; step++) {
         const t = step / steps;
         append(mix(mix(entry, corner, t), mix(corner, exit, t), t));
@@ -97,20 +110,86 @@
     });
   }
 
-  // Berths are on the seaward side of the map's printed harbor symbols.
-  // Coastal waypoints were checked against the HD shoreline before corner rounding.
-  const ports = Object.freeze([
-    Object.freeze({ id: 'pritz', name: 'Порт Приц', x: 4068 / 7400 * 100, y: 1158 / 3800 * 100 }),
-    Object.freeze({ id: 'bayam', name: 'Байам', x: 4318 / 7400 * 100, y: 1498 / 3800 * 100 }),
-    Object.freeze({ id: 'bansy', name: 'Порт Банси', x: 4118 / 7400 * 100, y: 1355 / 3800 * 100 })
-  ]);
+  // The network names real map harbors and explicit offshore anchorages.
+  const ports = Object.freeze(network.ports.map(port => Object.freeze({ ...port })));
+  const portById = new Map(ports.map(port => [port.id, port]));
+  if (portById.size !== ports.length) throw new Error('Island port ids must be unique');
+
+  function buildCircuit(definition) {
+    const stopIds = definition.stopIds;
+    if (!Array.isArray(stopIds) || stopIds.length < 2 || definition.legs.length !== stopIds.length) {
+      throw new Error(`Circuit ${definition.id} must have a leg for every stop, including its return`);
+    }
+    const itinerary = stopIds.map(stopId => {
+      const port = portById.get(stopId);
+      if (!port) throw new Error(`Unknown island stop ${stopId}`);
+      return port;
+    });
+    const legs = definition.legs.map((leg, index) => {
+      const startPort = itinerary[index], endPort = itinerary[(index + 1) % itinerary.length];
+      if (leg.from !== startPort.id || leg.to !== endPort.id) {
+        throw new Error(`Circuit ${definition.id} has an out-of-order leg ${leg.from} → ${leg.to}`);
+      }
+      const dockMinutes = leg.dockMinutes ?? definition.dockMinutes;
+      if (!Number.isFinite(dockMinutes) || dockMinutes < 0) throw new Error('Port dwell time must be nonnegative');
+      if (!Array.isArray(leg.points) || leg.points.length < 2 ||
+          distanceKm(leg.points[0], [startPort.x, startPort.y]) > .0001 ||
+          distanceKm(leg.points.at(-1), [endPort.x, endPort.y]) > .0001) {
+        throw new Error(`Circuit ${definition.id} must dock exactly at ${startPort.id} and ${endPort.id}`);
+      }
+      const points = leg.points.map(point => [...point]);
+      points[0] = [startPort.x, startPort.y];
+      points[points.length - 1] = [endPort.x, endPort.y];
+      const route = buildRoute({
+        ...definition,
+        id: `${definition.id}:${index}`,
+        kind: 'ship',
+        startPort,
+        endPort,
+        dockMinutes,
+        points
+      });
+      return Object.freeze({ ...route, from: startPort.id, to: endPort.id, spanMinutes: dockMinutes + route.durationMinutes });
+    });
+    const cumulativeMinutes = [0];
+    for (const leg of legs) cumulativeMinutes.push(cumulativeMinutes.at(-1) + leg.spanMinutes);
+    const points = legs.flatMap((leg, index) => index ? leg.points.slice(1) : leg.points);
+    const segmentsKm = points.slice(1).map((point, i) => distanceKm(points[i], point));
+    const cumulativeKm = [0];
+    for (const segment of segmentsKm) cumulativeKm.push(cumulativeKm.at(-1) + segment);
+    const totalKm = legs.reduce((sum, leg) => sum + leg.totalKm, 0);
+    const durationMinutes = legs.reduce((sum, leg) => sum + leg.durationMinutes, 0);
+    return Object.freeze({
+      id: definition.id,
+      kind: 'ship',
+      type: definition.type || 'regular',
+      name: definition.name,
+      speedKnots: definition.speedKnots,
+      speedKmh: definition.speedKnots * KM_PER_NAUTICAL_MILE,
+      totalKm,
+      circuitKm: totalKm,
+      durationMinutes,
+      dockMinutes: definition.dockMinutes,
+      cycleMinutes: cumulativeMinutes.at(-1),
+      circuitMinutes: cumulativeMinutes.at(-1),
+      startPort: itinerary[0],
+      endPort: itinerary[0],
+      itinerary: Object.freeze(itinerary),
+      stopIds: Object.freeze([...stopIds]),
+      stopNames: Object.freeze(itinerary.map(port => port.name)),
+      stopCount: itinerary.length,
+      legs: Object.freeze(legs),
+      cumulativeMinutes: Object.freeze(cumulativeMinutes),
+      waypoints: Object.freeze(legs.flatMap((leg, index) => index ? leg.waypoints.slice(1) : leg.waypoints)),
+      points: Object.freeze(points),
+      svgPath: legs.map(leg => leg.svgPath).join(' '),
+      segmentsKm: Object.freeze(segmentsKm),
+      cumulativeKm: Object.freeze(cumulativeKm)
+    });
+  }
+
   const routes = Object.freeze([
-    buildRoute({ id: 'sea-east', kind: 'ship', name: 'Почтовый пароход', speedKnots: 12, dockMinutes: 60,
-      startPort: ports[0], endPort: ports[1],
-      points: [[4068 / 7400 * 100, 1158 / 3800 * 100], [4090 / 7400 * 100, 1185 / 3800 * 100], [4130 / 7400 * 100, 1240 / 3800 * 100], [4175 / 7400 * 100, 1300 / 3800 * 100], [4210 / 7400 * 100, 1370 / 3800 * 100], [4260 / 7400 * 100, 1435 / 3800 * 100], [4295 / 7400 * 100, 1468 / 3800 * 100], [4318 / 7400 * 100, 1498 / 3800 * 100]] }),
-    buildRoute({ id: 'sea-west', kind: 'ship', name: 'Грузовой пароход', speedKnots: 8, dockMinutes: 120,
-      startPort: ports[1], endPort: ports[2],
-      points: [[4318 / 7400 * 100, 1498 / 3800 * 100], [4288 / 7400 * 100, 1477 / 3800 * 100], [4245 / 7400 * 100, 1448 / 3800 * 100], [4200 / 7400 * 100, 1402 / 3800 * 100], [4157 / 7400 * 100, 1363 / 3800 * 100], [4118 / 7400 * 100, 1355 / 3800 * 100]] }),
+    ...network.circuits.map(buildCircuit),
     buildRoute({ id: 'rail-loen', kind: 'train', name: 'Паровоз Лоэна', speedKmh: 40,
       points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] })
   ]);
@@ -134,6 +213,7 @@
 
   function statusAt(route, elapsedMinutes) {
     const time = Number.isFinite(elapsedMinutes) ? Math.max(0, elapsedMinutes) : 0;
+    if (route.kind === 'ship' && route.legs) return circuitStatusAt(route, time);
     const legMinutes = route.durationMinutes + route.dockMinutes;
     const leg = Math.floor(time / legMinutes);
     const withinLeg = time % legMinutes;
@@ -165,6 +245,60 @@
       remainingKm: route.totalKm * (1 - progress),
       remainingMinutes: route.durationMinutes * (1 - progress) + nextDepartureMinutes,
       leg
+    };
+  }
+
+  function circuitStatusAt(route, time) {
+    const epsilon = Math.max(1e-9, Number.EPSILON * time * 4);
+    let cycle = Math.floor(time / route.cycleMinutes);
+    let withinCycle = time - cycle * route.cycleMinutes;
+    // Keep exact port-call boundaries stable after many floating-point cycles.
+    if (route.cycleMinutes - withinCycle <= epsilon) { cycle++; withinCycle = 0; }
+    else if (withinCycle <= epsilon) withinCycle = 0;
+    let low = 0, high = route.legs.length - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (withinCycle + epsilon >= route.cumulativeMinutes[middle + 1]) low = middle + 1;
+      else high = middle;
+    }
+    const stopIndex = low, currentLeg = route.legs[stopIndex];
+    const withinLeg = Math.max(0, withinCycle - route.cumulativeMinutes[stopIndex]);
+    const phase = withinLeg + epsilon < currentLeg.dockMinutes ? 'docked' : 'sailing';
+    const nextDepartureMinutes = phase === 'docked' ? currentLeg.dockMinutes - withinLeg : 0;
+    const progress = phase === 'docked' ? 0 : Math.max(0, Math.min(1, (withinLeg - currentLeg.dockMinutes) / currentLeg.durationMinutes));
+    return {
+      id: route.id,
+      kind: route.kind,
+      name: route.name,
+      routeName: route.name,
+      type: route.type,
+      speedKnots: route.speedKnots,
+      speedKmh: route.speedKmh,
+      totalKm: currentLeg.totalKm,
+      durationMinutes: currentLeg.durationMinutes,
+      dockMinutes: currentLeg.dockMinutes,
+      cycleMinutes: route.cycleMinutes,
+      circuitKm: route.totalKm,
+      circuitMinutes: route.cycleMinutes,
+      circuitMovingMinutes: route.durationMinutes,
+      circuitProgress: withinCycle / route.cycleMinutes,
+      cycle,
+      ...positionAlong(currentLeg, progress, false),
+      progress,
+      direction: 'circuit',
+      phase,
+      origin: currentLeg.startPort,
+      destination: currentLeg.endPort,
+      currentPort: phase === 'docked' ? currentLeg.startPort : null,
+      nextDepartureMinutes,
+      remainingKm: currentLeg.totalKm * (1 - progress),
+      remainingMinutes: currentLeg.durationMinutes * (1 - progress) + nextDepartureMinutes,
+      leg: cycle * route.legs.length + stopIndex,
+      stopIndex,
+      stopCount: route.legs.length,
+      stopNames: route.stopNames,
+      stopIds: route.stopIds,
+      itinerary: route.itinerary
     };
   }
 

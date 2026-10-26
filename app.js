@@ -32,6 +32,7 @@ try {
     state.journal = (Array.isArray(saved.journal) ? saved.journal : []).filter(e => e && typeof e.text === 'string' && finite(e.minutes)).slice(0,12).map(e => ({text:e.text.slice(0,180),minutes:e.minutes}));
   }
 } catch { storageAvailable = false; }
+let shippingLine='all';
 let filter='all', selectedPlace=null, selectedPlayer=null, scale=1, dx=0, dy=0, mode=null, mapDrag=null, toastTimer;
 function node(tag, className, text) {
   const el = document.createElement(tag);
@@ -81,7 +82,7 @@ function setMode(next) {
   if (window.innerWidth <= 800) viewport.scrollIntoView({block:'center',behavior:'smooth'});
 }
 $('#cancel-placement').onclick=()=>setMode(null);
-function closeDetail() { $('#detail').hidden=true;selectedPlace=null;renderPlaces(); }
+function closeDetail() { $('#detail').hidden=true;selectedPlace=null;document.querySelectorAll('.port-marker').forEach(el=>el.classList.remove('selected'));renderPlaces(); }
 function renderPlaces() {
   const query=$('#search').value.trim().toLocaleLowerCase('ru');
   const visible=places.filter(p=>(filter==='all'||p.type===filter)&&(p.name+' '+p.region).toLocaleLowerCase('ru').includes(query));
@@ -96,6 +97,7 @@ function renderPlaces() {
   if(!visible.length)$('#places').append(node('p','empty-state','Места не найдены. Попробуйте другой запрос.'));
 }
 function selectPlace(p) {
+  document.querySelectorAll('.port-marker').forEach(el=>el.classList.remove('selected'));
   selectedPlace=p.id;const panel=$('#detail');panel.hidden=false;panel.replaceChildren();
   panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',`${p.type==='city'?'ГОРОД':'РЕГИОН'} / ${p.region}`),node('h3','',p.name),node('p','',p.description));renderPlaces();
 }
@@ -185,7 +187,7 @@ function placeAt(clientX,clientY) {
   }
   updateWorld();save();
 }
-function transform() {world.style.transform=`translate(${dx}px, calc(-50% + ${dy}px)) scale(${scale})`;world.style.setProperty('--marker-scale',1/scale);$('#zoom-level').textContent=Math.round(scale*100)+'%';}
+function transform() {world.style.transform=`translate(${dx}px, calc(-50% + ${dy}px)) scale(${scale})`;world.style.setProperty('--marker-scale',1/scale);viewport.classList.toggle('port-labels-visible',scale>=2.4);$('#zoom-level').textContent=Math.round(scale*100)+'%';}
 function zoom(factor, clientX, clientY) {
   const previous=scale;
   scale=clamp(scale*factor,.75,6);
@@ -218,7 +220,24 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();setTab('places');$('#search').focus();}
   if(e.key==='Escape'){setMode(null);closeDetail();}
 });
-const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer')});
+const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer'),onPortSelect:selectPort});
+function selectPort(port) {
+  if(mode)return;
+  closeDetail();setTab('travel');
+  document.querySelectorAll('.port-marker').forEach(el=>el.classList.toggle('selected',el.dataset.portId===port.id));
+  const panel=$('#detail');panel.hidden=false;panel.replaceChildren();
+  panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',`${port.kind==='anchorage'?'РЕЙД':'ГАВАНЬ'} / ${port.island||'Морская линия'}`),node('h3','',port.name),node('p','',port.note||'Стоянка морского маршрута на карте мира книги.'));
+  const lines=node('div','entity-actions');
+  for(const route of LotMTravel.routes.filter(route=>route.kind==='ship'&&route.stopIds.includes(port.id)))lines.append(button(route.name,'',()=>{shippingLine=route.id;$('#shipping-line').value=route.id;updateWorld(true);focusVoyage(route.id);}));
+  panel.append(lines);
+  if(window.innerWidth<=800)viewport.scrollIntoView({block:'center',behavior:'smooth'});
+}
+function initTravelFilters() {
+  const ships=LotMTravel.routes.filter(route=>route.kind==='ship');
+  $('#network-summary').textContent=`Стоянок: ${LotMTravel.ports.length} · морских линий: ${ships.length}`;
+  for(const route of ships){const option=node('option','',route.name);option.value=route.id;$('#shipping-line').append(option);}
+  $('#shipping-line').onchange=()=>{shippingLine=$('#shipping-line').value;updateWorld(true);};
+}
 function formatDuration(minutes) {
   const total=Math.max(0,Math.ceil(minutes));
   const days=Math.floor(total/1440),hours=Math.floor((total%1440)/60),rest=total%60;
@@ -236,28 +255,35 @@ function focusVoyage(routeId) {
 }
 function renderTravel(statuses) {
   if(!Array.isArray(statuses))return;
-  const list=$('#travel-list');list.replaceChildren();
-  for(const route of statuses){
+  const list=$('#travel-list');const openRoutes=new Set(Array.from(list.querySelectorAll('details[open]')).map(el=>el.closest('article').dataset.routeId));list.replaceChildren();
+  for(const route of statuses.filter(route=>route.kind!=='ship'||shippingLine==='all'||route.id===shippingLine)){
     const card=node('article','entity-card travel-card');card.dataset.routeId=route.id;
     const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
     const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
     const progress=node('progress');progress.max=1;progress.value=route.progress;progress.setAttribute('aria-label',`Пройдено по маршруту: ${route.name}`);
     const info=node('div','travel-info');
     info.append(node('span','',`${formatDistance(route.totalKm)} км · в пути ${formatDuration(route.durationMinutes)}`));
-    if(route.kind==='ship')info.append(node('span','',`Стоянка в порту: ${formatDuration(route.dockMinutes)}`));
+    if(route.kind==='ship'){info.append(node('span','',`Стоянка: ${formatDuration(route.dockMinutes)}`),node('span','',`Весь круг: ${formatDistance(route.circuitKm)} км · ${formatDuration(route.circuitMinutes)} со стоянками`));}
     const journey=route.origin&&route.destination?`${route.origin.name} → ${route.destination.name}`:(route.direction==='return'?'Бэклунд → Тинген':'Тинген → Бэклунд');
     const docked=route.phase==='docked';
-    const movement=docked?`В порту: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
+    const movement=docked?`На стоянке: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
     const status=route.enabled?`${movement}${state.running?'':' · пауза'}`:'Скрыт на карте';
     const remaining=docked?`Отправление через ${formatDuration(route.nextDepartureMinutes)}`:`До прибытия: ${formatDuration(route.remainingMinutes)} · ${formatDistance(route.remainingKm)} км`;
     const actions=node('div','entity-actions');actions.append(button('↗ Показать рейс','move-button',()=>focusVoyage(route.id),`Показать рейс: ${route.name}`));
     card.append(heading,node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`${remaining} игрового времени`),actions);
+    if(route.kind==='ship'){
+      if(route.type==='expedition')card.append(node('p','expedition-label','Экспедиционная линия · рейдовые стоянки'));
+      const itinerary=node('details','itinerary');itinerary.open=openRoutes.has(route.id);itinerary.append(node('summary','',`Остановки: ${route.stopCount} · полный маршрут`));
+      const stops=node('ol','stop-list');
+      route.itinerary.forEach((port,index)=>{const li=node('li',index===route.stopIndex?'current-stop':index===(route.stopIndex+1)%route.stopCount?'next-stop':'');const stop=button(port.name,'',()=>{locate(port.x,port.y);selectPort(port);});li.append(stop,node('small','',port.island||''));stops.append(li);});
+      itinerary.append(stops,node('small','itinerary-note','После последней остановки — возвращение к первой.'));card.append(itinerary);
+    }
     list.append(card);
   }
 }
 let lastMinute=-1;
 function updateWorld(force=false) {
-  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events});
+  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events,shippingLine});
   const minute=Math.floor(state.minutes);if(minute===lastMinute&&!force)return;lastMinute=minute;
   renderTravel(travelStatuses);
   const hour=(state.minutes%1440)/60;
@@ -306,4 +332,4 @@ function tick(now) {
 }
 document.addEventListener('visibilitychange',()=>{lastTick=performance.now();if(document.hidden)save();});
 window.addEventListener('pagehide',save);
-renderPlaces();renderPlayers();renderEvents();renderJournal();transform();updateWorld(true);save();requestAnimationFrame(tick);
+initTravelFilters();renderPlaces();renderPlayers();renderEvents();renderJournal();transform();updateWorld(true);save();requestAnimationFrame(tick);

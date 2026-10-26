@@ -5,6 +5,8 @@
   const travel = window.LotMTravel;
   if (!travel) throw new Error('Load travel.js before simulation.js');
   const routeDefinitions = travel.routes;
+  const palette=['#9bcac7','#d8b875','#b1a0d4','#92b2d2','#a9bf8b','#d0a297'];
+  const routeColors=new Map(routeDefinitions.filter(route=>route.kind==='ship').map((route,i)=>[route.id,palette[i%palette.length]]));
   function speedLabel(route) {
     const kmh = route.speedKmh.toLocaleString('ru-RU', { maximumFractionDigits: 1 });
     return route.speedKnots === null ? `${kmh} км/ч` : `${route.speedKnots} узлов · ${kmh} км/ч`;
@@ -40,20 +42,22 @@
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
     path.dataset.route = definition.id;
+    if(definition.kind==='ship')path.style.stroke=routeColors.get(definition.id);
     path.setAttribute('class', `simulation-route ${definition.kind}`);
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
     path.append(title);
     return path;
   }
-  window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival }) {
+  window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival, onPortSelect }) {
     injectStyles();
     const portMarkers = (travel.ports || []).map(port => {
-      const marker = document.createElement('div');
-      marker.className = 'port-marker';marker.dataset.portId=port.id;
+      const marker = document.createElement('button');marker.type='button';
+      marker.className = 'port-marker'+(port.kind==='anchorage'?' anchorage':'');marker.dataset.portId=port.id;
       marker.style.left=`${port.x}%`;marker.style.top=`${port.y}%`;
-      marker.setAttribute('role','img');marker.setAttribute('aria-label',`Порт: ${port.name}`);
-      const pin=document.createElement('span');pin.className='port-pin';pin.textContent='⚓';
+      marker.setAttribute('aria-label',`${port.kind==='anchorage'?'Рейд':'Гавань'}: ${port.name}`);
+      marker.onclick=()=>{if(typeof onPortSelect==='function')onPortSelect(port);};
+      const pin=document.createElement('span');pin.className='port-pin';pin.textContent=port.kind==='anchorage'?'◇':'⚓';
       const label=document.createElement('span');label.className='port-label';label.textContent=port.name;
       marker.append(pin,label);transportLayer.append(marker);return marker;
     });
@@ -62,6 +66,7 @@
       routesLayer.append(path);
       const marker = document.createElement('div');
       marker.className = `transport-marker ${definition.kind}`;
+      if(definition.kind==='ship')marker.style.setProperty('--route-color',routeColors.get(definition.id));
       marker.setAttribute('role', 'img');
       marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
       marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
@@ -127,10 +132,10 @@
       });
     }
     return {
-      update({ minutes = 0, ships = true, trains = true, events = [] } = {}) {
+      update({ minutes = 0, ships = true, trains = true, events = [], shippingLine = 'all' } = {}) {
         const statuses = transport.map(item => {
           const { definition, marker, path, berth } = item;
-          const enabled = definition.kind === 'ship' ? ships : trains;
+          const enabled = definition.kind === 'ship' ? ships && (shippingLine==='all'||shippingLine===definition.id) : trains;
           const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
           path.toggleAttribute('hidden', !enabled);
@@ -151,7 +156,8 @@
           item.lastLeg = status.leg;
           return { ...status, enabled };
         });
-        portMarkers.forEach(port=>port.hidden=!ships);
+        const visiblePorts=new Set(routeDefinitions.filter(route=>route.kind==='ship'&&(shippingLine==='all'||route.id===shippingLine)).flatMap(route=>route.stopIds||[route.startPort.id,route.endPort.id]));
+        portMarkers.forEach(port=>port.hidden=!ships||!visiblePorts.has(port.dataset.portId));
         updateWeather(Array.isArray(events) ? events : []);
         return statuses;
       },
