@@ -1,7 +1,9 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SCALE, ports, routes, distanceKm, statusAt } = require('../travel.js');
+const { SCALE, ports, stations, sources, routes, distanceKm, statusAt } = require('../travel.js');
+const atlas = require('../transport-atlas.js');
+const islandNetwork = require('../island-network.js');
 const close = (actual, expected, tolerance = 1e-8) => assert(Math.abs(actual - expected) < tolerance, `${actual} ≠ ${expected}`);
 const ships = routes.filter(route => route.kind === 'ship');
 const pointAt = status => [status.x, status.y];
@@ -70,7 +72,8 @@ test('rounded legs stay in their inspected coastal corridor without sudden cours
 
 test('circuit time sums physical leg distances, steam speeds and all port calls', () => {
   for (const route of ships) {
-    assert([8, 12].includes(route.speedKnots));
+    assert(route.speedKnots > 0 && route.speedKnots <= 16, `${route.id} exceeds the modeled steam-vessel speed limit`);
+    if (route.serviceKind === 'gameplay') assert([8, 12].includes(route.speedKnots));
     close(route.speedKmh, route.speedKnots * 1.852);
     const distance = route.legs.reduce((sum, leg) => sum + leg.totalKm, 0);
     const sailingTime = distance / route.speedKmh * 60;
@@ -169,18 +172,47 @@ test('full circuits and large time jumps preserve location, stop, direction and 
   }
 });
 
-test('train behavior remains immediate two-way cruising without ship port calls', () => {
-  const train = routes.find(route => route.kind === 'train');
-  assert.equal(train.speedKmh, 40);
-  assert.equal(train.dockMinutes, 0);
-  assert.equal(statusAt(train, 0).phase, 'sailing');
-  const midpoint = statusAt(train, train.segmentsKm[0] / train.speedKmh * 60 / 2);
-  close(midpoint.x, (train.points[0][0] + train.points[1][0]) / 2);
-  close(midpoint.y, (train.points[0][1] + train.points[1][1]) / 2);
-  const reverse = statusAt(train, train.durationMinutes);
-  assert.equal(reverse.direction, 'return');
-  close(reverse.x, train.points.at(-1)[0]);
-  close(reverse.y, train.points.at(-1)[1]);
+test('source-backed rail services dock at their actual mapped city anchors and return', () => {
+  const trains = routes.filter(route => route.kind === 'train');
+  const byStation = new Map(stations.map(station => [station.id, station]));
+  assert(trains.length > 0, 'the atlas should include researched rail services');
+  assert.deepEqual(trains.map(route => route.id), atlas.railServices.map(route => route.id));
+  for (const train of trains) {
+    const definition = atlas.railServices.find(route => route.id === train.id);
+    assert(train.speedKmh > 0 && train.speedKmh <= 40);
+    assert.equal(train.dockMinutes, definition.dockMinutes ?? 5);
+    assert(train.dockMinutes > 0);
+    assert.equal(train.startPort, byStation.get(definition.from));
+    assert.equal(train.endPort, byStation.get(definition.to));
+    close(distanceKm(train.points[0], [train.startPort.x, train.startPort.y]), 0);
+    close(distanceKm(train.points.at(-1), [train.endPort.x, train.endPort.y]), 0);
+    const initial = statusAt(train, 0), waiting = statusAt(train, train.dockMinutes / 2);
+    assert.equal(initial.phase, 'docked');
+    assert.equal(initial.currentPort.id, definition.from);
+    assert.equal(initial.destination.id, definition.to);
+    close(distanceKm(pointAt(initial), pointAt(waiting)), 0);
+    close(waiting.nextDepartureMinutes, train.dockMinutes / 2);
+    const halfway = train.segmentsKm[0] / train.speedKmh * 60 / 2;
+    const midpoint = statusAt(train, train.dockMinutes + halfway);
+    assert.equal(midpoint.phase, 'sailing');
+    close(midpoint.x, (train.points[0][0] + train.points[1][0]) / 2);
+    close(midpoint.y, (train.points[0][1] + train.points[1][1]) / 2);
+    const arrival = statusAt(train, train.dockMinutes + train.durationMinutes);
+    assert.equal(arrival.phase, 'docked');
+    assert.equal(arrival.direction, 'return');
+    assert.equal(arrival.currentPort.id, definition.to);
+    assert.equal(arrival.destination.id, definition.from);
+    close(arrival.x, train.points.at(-1)[0]);
+    close(arrival.y, train.points.at(-1)[1]);
+    const returning = statusAt(train, 2 * train.dockMinutes + train.durationMinutes + halfway);
+    assert.equal(returning.phase, 'sailing');
+    for (const multiplier of [1, 100]) {
+      const cycle = statusAt(train, train.cycleMinutes * multiplier);
+      assert.equal(cycle.phase, 'docked');
+      assert.equal(cycle.currentPort.id, definition.from);
+      close(distanceKm(pointAt(cycle), pointAt(initial)), 0);
+    }
+  }
 });
 
 test('invalid elapsed times wait at initial departure; invalid coordinates fail', () => {
@@ -193,4 +225,50 @@ test('invalid elapsed times wait at initial departure; invalid coordinates fail'
   }
   assert.throws(() => distanceKm([NaN, 0], [0, 0]), TypeError);
   assert.throws(() => distanceKm(null, [0, 0]), TypeError);
+});
+
+
+test('every documented or contextual service retains resolvable open-source evidence', () => {
+  const sourceById = new Map(sources.map(source => [source.id, source]));
+  assert.equal(sourceById.size, sources.length);
+  for (const source of sources) {
+    assert(source.title, `source ${source.id} needs a readable title`);
+    assert.match(source.url, /^https:\/\//, `source ${source.id} needs a public HTTPS reference`);
+  }
+  const researched = routes.filter(route => route.evidence.status !== 'gameplay');
+  assert(researched.length > 0);
+  for (const route of researched) {
+    assert(['documented', 'contextual'].includes(route.evidence.status), `${route.id} has no explicit evidence level`);
+    assert(route.evidence.sourceIds.length > 0);
+    for (const sourceId of route.evidence.sourceIds) assert(sourceById.has(sourceId), `${route.id} references an unknown source ${sourceId}`);
+    for (const time of [0, route.cycleMinutes * .31, route.cycleMinutes * 100]) {
+      const status = statusAt(route, time);
+      assert.equal(status.evidence, route.evidence);
+      assert.equal(status.serviceKind, route.serviceKind);
+    }
+  }
+});
+
+test('gameplay island circuits stay available without being promoted to documented schedules', () => {
+  const gameplay = routes.filter(route => route.serviceKind === 'gameplay');
+  assert.deepEqual(gameplay.map(route => route.id), islandNetwork.circuits.map(route => route.id));
+  const visited = new Set(gameplay.flatMap(route => route.stopIds));
+  for (const port of islandNetwork.ports) assert(visited.has(port.id));
+  for (const route of gameplay) {
+    assert.equal(route.evidence.status, 'gameplay');
+    assert.deepEqual(route.evidence.sourceIds, []);
+    assert.equal(statusAt(route, route.cycleMinutes / 2).evidence.status, 'gameplay');
+  }
+});
+
+test('canonical journey-duration metadata is preserved without changing game-scale physics', () => {
+  for (const definition of [...atlas.railServices, ...atlas.seaServices]) {
+    const route = routes.find(route => route.id === definition.id);
+    assert(route, `service ${definition.id} must be modeled`);
+    assert.deepEqual(route.evidence.canonicalDuration, definition.evidence.canonicalDuration);
+    close(route.durationMinutes, route.totalKm / route.speedKmh * 60);
+    const status = statusAt(route, 0);
+    assert.deepEqual(status.evidence.canonicalDuration, definition.evidence.canonicalDuration);
+    assert.equal(status.origin.id, route.startPort.id);
+  }
 });

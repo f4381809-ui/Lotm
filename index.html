@@ -21,11 +21,11 @@
       <div class="section-label journal-label">ЖУРНАЛ МИРА</div><ol id="journal"></ol>
     </section>
     <section id="tab-travel" class="tab-panel" hidden>
-      <div class="section-label">ПАРОВЫЕ МАРШРУТЫ</div>
+      <div class="section-label">АТЛАС СООБЩЕНИЙ · КНИГА 1</div>
       <div class="scale-info"><strong>1 клетка = 1500 км²</strong><span>Сторона клетки ≈ 38,7 км</span></div>
-      <p class="form-note">Корабли и поезд идут по игровым часам. Скорости крейсерские, для паровой эпохи. Переход к дню или ночи продвигает и путешествие.</p>
-      <p id="network-summary" class="network-summary"></p><label class="line-label" for="shipping-line">Морская линия</label><select id="shipping-line"><option value="all">Все морские линии</option></select><div id="travel-list" class="entity-list"></div>
-      <p class="form-note">Острова и гавани взяты с карты мира книги. Морские линии и расписания созданы для игры; у островов без гавани предусмотрен рейд.</p>
+      <p class="form-note">В карточках подтверждённых направлений есть ссылки на главы. Трассы на карте схематичны; выводы из контекста и игровые линии отмечены отдельно. Книжные сроки отделены от игровой модели.</p>
+      <p id="network-summary" class="network-summary"></p><div class="atlas-filters"><label class="line-label" for="evidence-mode">Основание</label><select id="evidence-mode"><option value="documented">Подтверждённые связи</option><option value="contextual">С выводами из контекста</option><option value="all">Включая игровые линии</option></select><label class="line-label" for="transport-kind">Транспорт</label><select id="transport-kind"><option value="all">Поезда и корабли</option><option value="train">Железные дороги</option><option value="ship">Морские рейсы</option></select></div><label class="line-label" for="shipping-line">Линия или рейс</label><select id="shipping-line"><option value="all">Все линии и рейсы</option></select><div id="travel-list" class="entity-list"></div>
+      <details id="catalog-panel" class="catalog-panel"><summary>Метро, проекты и сведения без трассы <span id="catalog-count"></span></summary><div id="transport-catalog"></div></details><p>В проверенных открытых источниках нет полной инженерной схемы и мирового расписания. Для неизвестных станций координаты не выдумываются.</p>
     </section>
     <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
   </div>
@@ -44,11 +44,11 @@
     <div class="map-label"><span class="status"></span> АТЛАС HD <span>·</span><span id="map-phase">ДНЕВНОЙ СВЕТ</span></div>
     <div id="placement-banner" hidden><span id="placement-text"></span><button id="cancel-placement" aria-label="Отменить размещение">Отмена ×</button></div>
     <div class="compass">N<span>✧</span>S</div><div class="zoom"><button id="plus" aria-label="Приблизить">+</button><span id="zoom-level">100%</span><button id="minus" aria-label="Отдалить">−</button></div>
-    <div class="map-legend"><span><i class="legend-line sea"></i> Морской рейс</span><span>⚓ Порты</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
+    <div class="map-legend"><span><i class="legend-line sea"></i> Морской рейс</span><span>⚓ Порты</span><span><i class="legend-line rail"></i> Ж/д связь</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
     <div class="hint" id="map-hint">Перетаскивайте карту · Колесо / + − для масштаба</div><div id="detail" hidden></div>
   </section>
   <footer><span id="clock-hint">Сутки ≈ 2 ч · 1 с = 12 игровых секунд</span><span>Игровая сессия хранится только в этом браузере</span></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
-<script src="island-network.js"></script><script src="travel.js"></script><script src="simulation.js"></script><script src="app.js"></script>
+<script src="island-network.js"></script><script src="transport-atlas.js"></script><script src="travel.js"></script><script src="simulation.js"></script><script src="app.js"></script>
 </body></html>

@@ -1,11 +1,10 @@
-/* Map locations follow the source atlas; shipping schedules are gameplay choices. */
-(function(root){
-'use strict';
-const network={
+/* Factual summaries and source references only; geometry and simulation are reconstructions. */
+(function(root){'use strict';
+const data={
   "metadata": {
     "sourceImage": "World_Map_HD.jpg",
     "source": "https://github.com/Phishinabowl/LoTM-Re-Read-Analysis/blob/608e48939ec352876ae919213a236592f46d982c/Artwork/page-assets/maps/lotm-world-map.jpg",
-    "schedule": "Игровые линии по островам и гаваням, подписанным на карте мира книги."
+    "schedule": "Игровые островные круги, отдельные от подтверждённых сообщений в атласе источников."
   },
   "ports": [
     {
@@ -24,7 +23,7 @@ const network={
       "kind": "harbor",
       "x": 58.351351351351354,
       "y": 39.421052631578945,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "bansy",
@@ -43,7 +42,7 @@ const network={
       "kind": "harbor",
       "x": 55.067567567567565,
       "y": 33.68421052631579,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "tiana",
@@ -52,7 +51,7 @@ const network={
       "kind": "harbor",
       "x": 55.67567567567567,
       "y": 37.10526315789473,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "longtail",
@@ -70,15 +69,14 @@ const network={
       "kind": "harbor",
       "x": 57.351351351351354,
       "y": 40.78947368421053,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "symeem",
-      "name": "Рейд Симиима",
+      "name": "Стоянка Симиима",
       "island": "Symeem Island",
       "kind": "anchorage",
-      "risk": "expedition",
-      "note": "Игровая стоянка у берега острова; регулярная каноническая гавань не заявляется.",
+      "note": "В главах 523, 531 и 533 подтверждены пассажирские лайнеры Байам — Симиим. Морская привязка условная; отдельное название пристани не установлено.",
       "x": 60.47297297297297,
       "y": 40.131578947368425
     },
@@ -89,7 +87,7 @@ const network={
       "kind": "harbor",
       "x": 60.945945945945944,
       "y": 35.21052631578947,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "toscarter",
@@ -98,7 +96,7 @@ const network={
       "kind": "harbor",
       "x": 63.64864864864865,
       "y": 35.89473684210526,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "dinos",
@@ -116,7 +114,7 @@ const network={
       "kind": "harbor",
       "x": 50.445945945945944,
       "y": 36.973684210526315,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "halman",
@@ -125,7 +123,7 @@ const network={
       "kind": "harbor",
       "x": 51.486486486486484,
       "y": 37.84210526315789,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "waypoint",
@@ -143,7 +141,7 @@ const network={
       "kind": "harbor",
       "x": 49.63513513513513,
       "y": 41.94736842105263,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "theros",
@@ -674,7 +672,7 @@ const network={
     {
       "id": "rorsted-east",
       "name": "Восточные острова Рорстеда",
-      "type": "expedition",
+      "type": "regular",
       "speedKnots": 8,
       "dockMinutes": 90,
       "stopIds": [
@@ -1136,5 +1134,5 @@ const network={
     }
   ]
 };
-if(typeof module==='object' && module.exports)module.exports=network;else root.LotMIslandNetwork=network;
+if(typeof module==='object'&&module.exports)module.exports=data;else root.LotMIslandNetwork=data;
 })(typeof globalThis!=='undefined'?globalThis:this);

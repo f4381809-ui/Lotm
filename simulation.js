@@ -43,13 +43,14 @@
     path.setAttribute('stroke-linejoin', 'round');
     path.dataset.route = definition.id;
     if(definition.kind==='ship')path.style.stroke=routeColors.get(definition.id);
-    path.setAttribute('class', `simulation-route ${definition.kind}`);
+    path.setAttribute('class', `simulation-route ${definition.kind} source-${definition.evidence.status}`);
+    path.dataset.evidence=definition.evidence.status;
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
     path.append(title);
     return path;
   }
-  window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival, onPortSelect }) {
+  window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival, onPortSelect, onStationSelect }) {
     injectStyles();
     const portMarkers = (travel.ports || []).map(port => {
       const marker = document.createElement('button');marker.type='button';
@@ -59,6 +60,14 @@
       marker.onclick=()=>{if(typeof onPortSelect==='function')onPortSelect(port);};
       const pin=document.createElement('span');pin.className='port-pin';pin.textContent=port.kind==='anchorage'?'◇':'⚓';
       const label=document.createElement('span');label.className='port-label';label.textContent=port.name;
+      marker.append(pin,label);transportLayer.append(marker);return marker;
+    });
+    const stationMarkers=(travel.stations||[]).map(station=>{
+      const marker=document.createElement('button');marker.type='button';marker.className='station-marker';marker.dataset.stationId=station.id;
+      marker.style.left=`${station.x}%`;marker.style.top=`${station.y}%`;marker.setAttribute('aria-label',`Железнодорожный узел: ${station.name}`);
+      marker.onclick=()=>{if(typeof onStationSelect==='function')onStationSelect(station);};
+      const pin=document.createElement('span');pin.className='station-pin';pin.textContent='▰';
+      const label=document.createElement('span');label.className='port-label';label.textContent=station.name;
       marker.append(pin,label);transportLayer.append(marker);return marker;
     });
     const transport = routeDefinitions.map(definition => {
@@ -71,7 +80,7 @@
       marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
       marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
       marker.innerHTML = icons[definition.kind];
-      const berth=document.createElement('span');berth.className='berth-label';berth.textContent='В порту';berth.hidden=true;marker.append(berth);
+      const berth=document.createElement('span');berth.className='berth-label';berth.textContent=definition.kind==='train'?'На станции':'В порту';berth.hidden=true;marker.append(berth);
       transportLayer.append(marker);
       return { definition, marker, path, berth, lastLeg: null };
     });
@@ -132,10 +141,14 @@
       });
     }
     return {
-      update({ minutes = 0, ships = true, trains = true, events = [], shippingLine = 'all' } = {}) {
+      update({ minutes = 0, ships = true, trains = true, events = [], shippingLine = 'all', evidenceMode = 'documented', transportKind = 'all' } = {}) {
+        const allows=route=>{
+          const status=route.evidence.status;
+          return (transportKind==='all'||route.kind===transportKind)&&(shippingLine==='all'||route.id===shippingLine)&&(evidenceMode==='all'||status==='documented'||evidenceMode==='contextual'&&status==='contextual');
+        };
         const statuses = transport.map(item => {
           const { definition, marker, path, berth } = item;
-          const enabled = definition.kind === 'ship' ? ships && (shippingLine==='all'||shippingLine===definition.id) : trains;
+          const enabled = allows(definition)&&(definition.kind==='ship'?ships:trains);
           const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
           path.toggleAttribute('hidden', !enabled);
@@ -146,7 +159,7 @@
           marker.classList.toggle('docked',docked);marker.dataset.phase=status.phase;
           berth.hidden=!docked;
           const journey=status.origin&&status.destination?`${status.origin.name} → ${status.destination.name}`:'';
-          const stateLabel=docked?`В порту ${status.currentPort.name}`:'В пути';
+          const stateLabel=docked?`${definition.kind==='train'?'На станции':'В порту'} ${status.currentPort.name}`:'В пути';
           marker.title=`${definition.name} · ${speedLabel(definition)} · ${journey} · ${stateLabel}`;
           marker.setAttribute('aria-label',marker.title);
           if (enabled && item.lastLeg !== null && status.leg > item.lastLeg && typeof onArrival === 'function') {
@@ -156,14 +169,16 @@
           item.lastLeg = status.leg;
           return { ...status, enabled };
         });
-        const visiblePorts=new Set(routeDefinitions.filter(route=>route.kind==='ship'&&(shippingLine==='all'||route.id===shippingLine)).flatMap(route=>route.stopIds||[route.startPort.id,route.endPort.id]));
+        const visiblePorts=new Set(routeDefinitions.filter(route=>route.kind==='ship'&&allows(route)).flatMap(route=>route.stopIds||[route.startPort.id,route.endPort.id]));
         portMarkers.forEach(port=>port.hidden=!ships||!visiblePorts.has(port.dataset.portId));
+        const visibleStations=new Set(routeDefinitions.filter(route=>route.kind==='train'&&allows(route)).flatMap(route=>[route.startPort.id,route.endPort.id]));
+        stationMarkers.forEach(marker=>marker.hidden=!trains||!visibleStations.has(marker.dataset.stationId));
         updateWeather(Array.isArray(events) ? events : []);
         return statuses;
       },
       destroy() {
         transport.forEach(item => { item.marker.remove(); item.path.remove(); });
-        portMarkers.forEach(port=>port.remove());
+        portMarkers.forEach(port=>port.remove());stationMarkers.forEach(marker=>marker.remove());
         zones.forEach(zone => zone.remove());
         zones.clear();
       }

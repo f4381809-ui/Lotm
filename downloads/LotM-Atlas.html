@@ -17,6 +17,11 @@
 .expedition-label{font-size:9px;color:#d1bd8d;margin:12px 0 0}
 
 #detail h3{padding-right:16px}#detail .close-detail{z-index:1}
+.atlas-filters select{margin-bottom:10px;font-size:11px}.evidence-badge{display:inline-block;margin-top:10px;padding:2px 6px;font-size:9px;border:1px solid #5d7350;border-radius:3px;color:#b9d7a6;background:#24351d}.evidence-badge.contextual{color:#e2c58d;border-color:#8e7749;background:#3b321e}.evidence-badge.gameplay{color:#aeb9b7;border-color:#586763;background:#24312c}.source-evidence{border-top:1px solid #3b4834;margin:12px 0 0;padding-top:9px}.source-evidence summary{font-size:10px;color:#b8caaa;cursor:pointer}.source-evidence p{font-size:10px;color:var(--muted);line-height:1.8;margin:8px 0}.source-links{display:flex;flex-direction:column;gap:6px;margin-top:8px}.source-links a{font-size:10px;color:var(--gold);text-underline-offset:3px}.book-timing{font-size:10px;color:#c7d9bb;line-height:1.7;margin:10px 0}.catalog-panel{border-top:1px solid #536047;margin-top:22px;padding-top:14px}.catalog-panel>summary{font-size:11px;cursor:pointer;color:var(--gold)}.catalog-card{border:1px solid #3f4a36;border-radius:5px;padding:12px;margin-top:12px}.catalog-card h4{font-size:12px;font-weight:500;margin:0 0 8px}.catalog-class{font-size:9px;color:#b9b69c}.detail-lines{max-height:120px;overflow:auto}#detail{max-height:calc(100% - 130px);overflow:auto}#transport-layer .station-marker{position:absolute;transform:translate(-50%,-50%) scale(var(--marker-scale,1));pointer-events:auto;z-index:3;border:0;padding:0;background:none;cursor:pointer}.station-pin{width:18px;height:18px;display:grid;place-items:center;background:#30281b;border:1px solid #cbb27d;border-radius:3px;color:#e7cc8e;font-size:12px}.station-marker.selected{z-index:5!important}.station-marker.selected .station-pin{box-shadow:0 0 0 4px #c8ad7230}.map.placing .station-marker{pointer-events:none}.map.port-labels-visible .station-marker .port-label,.station-marker:hover .port-label,.station-marker:focus-visible .port-label,.station-marker.selected .port-label{display:block}#routes-layer .simulation-route.train.source-documented{stroke-dasharray:none}#routes-layer .simulation-route.source-gameplay{opacity:.35}#routes-layer .simulation-route.source-contextual{opacity:.65}
+
+.service-kind{font-size:9px;color:var(--muted);margin:7px 0 0}#tab-travel>p:last-child{font-size:10px;color:var(--muted);line-height:1.8}
+
+.map[data-panel=travel] #transport-layer{z-index:6}
 
 </style></head>
 <body>
@@ -39,11 +44,11 @@
       <div class="section-label journal-label">ЖУРНАЛ МИРА</div><ol id="journal"></ol>
     </section>
     <section id="tab-travel" class="tab-panel" hidden>
-      <div class="section-label">ПАРОВЫЕ МАРШРУТЫ</div>
+      <div class="section-label">АТЛАС СООБЩЕНИЙ · КНИГА 1</div>
       <div class="scale-info"><strong>1 клетка = 1500 км²</strong><span>Сторона клетки ≈ 38,7 км</span></div>
-      <p class="form-note">Корабли и поезд идут по игровым часам. Скорости крейсерские, для паровой эпохи. Переход к дню или ночи продвигает и путешествие.</p>
-      <p id="network-summary" class="network-summary"></p><label class="line-label" for="shipping-line">Морская линия</label><select id="shipping-line"><option value="all">Все морские линии</option></select><div id="travel-list" class="entity-list"></div>
-      <p class="form-note">Острова и гавани взяты с карты мира книги. Морские линии и расписания созданы для игры; у островов без гавани предусмотрен рейд.</p>
+      <p class="form-note">В карточках подтверждённых направлений есть ссылки на главы. Трассы на карте схематичны; выводы из контекста и игровые линии отмечены отдельно. Книжные сроки отделены от игровой модели.</p>
+      <p id="network-summary" class="network-summary"></p><div class="atlas-filters"><label class="line-label" for="evidence-mode">Основание</label><select id="evidence-mode"><option value="documented">Подтверждённые связи</option><option value="contextual">С выводами из контекста</option><option value="all">Включая игровые линии</option></select><label class="line-label" for="transport-kind">Транспорт</label><select id="transport-kind"><option value="all">Поезда и корабли</option><option value="train">Железные дороги</option><option value="ship">Морские рейсы</option></select></div><label class="line-label" for="shipping-line">Линия или рейс</label><select id="shipping-line"><option value="all">Все линии и рейсы</option></select><div id="travel-list" class="entity-list"></div>
+      <details id="catalog-panel" class="catalog-panel"><summary>Метро, проекты и сведения без трассы <span id="catalog-count"></span></summary><div id="transport-catalog"></div></details><p>В проверенных открытых источниках нет полной инженерной схемы и мирового расписания. Для неизвестных станций координаты не выдумываются.</p>
     </section>
     <section id="tab-places" class="tab-panel" hidden><label class="search"><span>⌕</span><input id="search" placeholder="Найти место…" aria-label="Найти место"><kbd>/</kbd></label><div class="filters"><button class="active" data-filter="all" aria-pressed="true">Все места</button><button data-filter="city" aria-pressed="false">Города</button><button data-filter="region" aria-pressed="false">Регионы</button></div><div class="list-heading">АТЛАС МЕСТ <span id="count"></span></div><div id="places"></div></section>
   </div>
@@ -62,21 +67,20 @@
     <div class="map-label"><span class="status"></span> АТЛАС HD <span>·</span><span id="map-phase">ДНЕВНОЙ СВЕТ</span></div>
     <div id="placement-banner" hidden><span id="placement-text"></span><button id="cancel-placement" aria-label="Отменить размещение">Отмена ×</button></div>
     <div class="compass">N<span>✧</span>S</div><div class="zoom"><button id="plus" aria-label="Приблизить">+</button><span id="zoom-level">100%</span><button id="minus" aria-label="Отдалить">−</button></div>
-    <div class="map-legend"><span><i class="legend-line sea"></i> Морской рейс</span><span>⚓ Порты</span><span><i class="legend-line rail"></i> Железная дорога</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
+    <div class="map-legend"><span><i class="legend-line sea"></i> Морской рейс</span><span>⚓ Порты</span><span><i class="legend-line rail"></i> Ж/д связь</span><small>Клетка 1500 км² · сторона ≈ 38,7 км</small></div>
     <div class="hint" id="map-hint">Перетаскивайте карту · Колесо / + − для масштаба</div><div id="detail" hidden></div>
   </section>
   <footer><span id="clock-hint">Сутки ≈ 2 ч · 1 с = 12 игровых секунд</span><span>Игровая сессия хранится только в этом браузере</span></footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
 <script>
-/* Map locations follow the source atlas; shipping schedules are gameplay choices. */
-(function(root){
-'use strict';
-const network={
+/* Factual summaries and source references only; geometry and simulation are reconstructions. */
+(function(root){'use strict';
+const data={
   "metadata": {
     "sourceImage": "World_Map_HD.jpg",
     "source": "https://github.com/Phishinabowl/LoTM-Re-Read-Analysis/blob/608e48939ec352876ae919213a236592f46d982c/Artwork/page-assets/maps/lotm-world-map.jpg",
-    "schedule": "Игровые линии по островам и гаваням, подписанным на карте мира книги."
+    "schedule": "Игровые островные круги, отдельные от подтверждённых сообщений в атласе источников."
   },
   "ports": [
     {
@@ -95,7 +99,7 @@ const network={
       "kind": "harbor",
       "x": 58.351351351351354,
       "y": 39.421052631578945,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "bansy",
@@ -114,7 +118,7 @@ const network={
       "kind": "harbor",
       "x": 55.067567567567565,
       "y": 33.68421052631579,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "tiana",
@@ -123,7 +127,7 @@ const network={
       "kind": "harbor",
       "x": 55.67567567567567,
       "y": 37.10526315789473,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "longtail",
@@ -141,15 +145,14 @@ const network={
       "kind": "harbor",
       "x": 57.351351351351354,
       "y": 40.78947368421053,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "symeem",
-      "name": "Рейд Симиима",
+      "name": "Стоянка Симиима",
       "island": "Symeem Island",
       "kind": "anchorage",
-      "risk": "expedition",
-      "note": "Игровая стоянка у берега острова; регулярная каноническая гавань не заявляется.",
+      "note": "В главах 523, 531 и 533 подтверждены пассажирские лайнеры Байам — Симиим. Морская привязка условная; отдельное название пристани не установлено.",
       "x": 60.47297297297297,
       "y": 40.131578947368425
     },
@@ -160,7 +163,7 @@ const network={
       "kind": "harbor",
       "x": 60.945945945945944,
       "y": 35.21052631578947,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "toscarter",
@@ -169,7 +172,7 @@ const network={
       "kind": "harbor",
       "x": 63.64864864864865,
       "y": 35.89473684210526,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "dinos",
@@ -187,7 +190,7 @@ const network={
       "kind": "harbor",
       "x": 50.445945945945944,
       "y": 36.973684210526315,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "halman",
@@ -196,7 +199,7 @@ const network={
       "kind": "harbor",
       "x": 51.486486486486484,
       "y": 37.84210526315789,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "waypoint",
@@ -214,7 +217,7 @@ const network={
       "kind": "harbor",
       "x": 49.63513513513513,
       "y": 41.94736842105263,
-      "note": "Гавань, подписанная на исходной карте мира книги."
+      "note": "Привязка к гавани или берегу, подписанным на исходной карте мира книги."
     },
     {
       "id": "theros",
@@ -745,7 +748,7 @@ const network={
     {
       "id": "rorsted-east",
       "name": "Восточные острова Рорстеда",
-      "type": "expedition",
+      "type": "regular",
       "speedKnots": 8,
       "dockMinutes": 90,
       "stopIds": [
@@ -1207,7 +1210,2733 @@ const network={
     }
   ]
 };
-if(typeof module==='object' && module.exports)module.exports=network;else root.LotMIslandNetwork=network;
+if(typeof module==='object'&&module.exports)module.exports=data;else root.LotMIslandNetwork=data;
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+</script><script>
+/* Factual summaries and source references only; geometry and simulation are reconstructions. */
+(function(root){'use strict';
+const data={
+  "metadata": {
+    "researchDate": "2026-10-26",
+    "scope": "Повелитель тайн, первая книга. Все найденные конкретные связи и отдельный каталог неполных сведений.",
+    "limitation": "В проверенных источниках нет полной инженерной карты и единого мирового расписания. Координаты городов взяты с фанатской HD-карты; трассировка реконструирована.",
+    "timing": "Книжные сроки и отправления хранятся отдельно от игровой модели с пользовательской сеткой 1500 км² на клетку.",
+    "sourcePolicy": "Только номера глав, ссылки и пересказы фактов; полный текст книги не включён."
+  },
+  "sources": [
+    {
+      "id": "book-213-3456",
+      "title": "Повелитель тайн, глава 213",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L3456",
+      "chapter": 213,
+      "line": 3456,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-126-2020",
+      "title": "Повелитель тайн, глава 126",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L2020",
+      "chapter": 126,
+      "line": 2020,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-12-226",
+      "title": "Повелитель тайн, глава 12",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L226",
+      "chapter": 12,
+      "line": 226,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-56-892",
+      "title": "Повелитель тайн, глава 56",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L892",
+      "chapter": 56,
+      "line": 892,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-17-304",
+      "title": "Повелитель тайн, глава 17",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L304",
+      "chapter": 17,
+      "line": 304,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-406-6710",
+      "title": "Повелитель тайн, глава 406",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L6710",
+      "chapter": 406,
+      "line": 6710,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-731-12265",
+      "title": "Повелитель тайн, глава 731",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L12265",
+      "chapter": 731,
+      "line": 12265,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-732-12279",
+      "title": "Повелитель тайн, глава 732",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L12279",
+      "chapter": 732,
+      "line": 12279,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-975-16147",
+      "title": "Повелитель тайн, глава 975",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L16147",
+      "chapter": 975,
+      "line": 16147,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1333-22234",
+      "title": "Повелитель тайн, глава 1333",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L22234",
+      "chapter": 1333,
+      "line": 22234,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-513-8563",
+      "title": "Повелитель тайн, глава 513",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8563",
+      "chapter": 513,
+      "line": 8563,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1204-19965",
+      "title": "Повелитель тайн, глава 1204",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L19965",
+      "chapter": 1204,
+      "line": 19965,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1280-21327",
+      "title": "Повелитель тайн, глава 1280",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L21327",
+      "chapter": 1280,
+      "line": 21327,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-542-9048",
+      "title": "Повелитель тайн, глава 542",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9048",
+      "chapter": 542,
+      "line": 9048,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-554-9274",
+      "title": "Повелитель тайн, глава 554",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9274",
+      "chapter": 554,
+      "line": 9274,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-558-9345",
+      "title": "Повелитель тайн, глава 558",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9345",
+      "chapter": 558,
+      "line": 9345,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1292-21521",
+      "title": "Повелитель тайн, глава 1292",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L21521",
+      "chapter": 1292,
+      "line": 21521,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1323-22056",
+      "title": "Повелитель тайн, глава 1323",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L22056",
+      "chapter": 1323,
+      "line": 22056,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-214-3475",
+      "title": "Повелитель тайн, глава 214",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L3475",
+      "chapter": 214,
+      "line": 3475,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-215-3486",
+      "title": "Повелитель тайн, глава 215",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L3486",
+      "chapter": 215,
+      "line": 3486,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-268-4366",
+      "title": "Повелитель тайн, глава 268",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L4366",
+      "chapter": 268,
+      "line": 4366,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-325-5318",
+      "title": "Повелитель тайн, глава 325",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L5318",
+      "chapter": 325,
+      "line": 5318,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1315-21940",
+      "title": "Повелитель тайн, глава 1315",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L21940",
+      "chapter": 1315,
+      "line": 21940,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1330-22171",
+      "title": "Повелитель тайн, глава 1330",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L22171",
+      "chapter": 1330,
+      "line": 22171,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1328-22141",
+      "title": "Повелитель тайн, глава 1328",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L22141",
+      "chapter": 1328,
+      "line": 22141,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-880-14611",
+      "title": "Повелитель тайн, глава 880",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L14611",
+      "chapter": 880,
+      "line": 14611,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1431-0",
+      "title": "Повелитель тайн, глава 1431",
+      "url": "https://github.com/Demetri0/fb2-lord-of-the-mysteries/blob/4d98c272bcc16db66ce834451fd2e793bad1e337/Lord%20Of%20The%20Mysteries.fb2#L121214",
+      "chapter": 1431,
+      "line": 0,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-126-2013",
+      "title": "Повелитель тайн, глава 126",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L2013",
+      "chapter": 126,
+      "line": 2013,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-126-2016",
+      "title": "Повелитель тайн, глава 126",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L2016",
+      "chapter": 126,
+      "line": 2016,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-490-8148",
+      "title": "Повелитель тайн, глава 490",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8148",
+      "chapter": 490,
+      "line": 8148,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-497-8262",
+      "title": "Повелитель тайн, глава 497",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8262",
+      "chapter": 497,
+      "line": 8262,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-505-8385",
+      "title": "Повелитель тайн, глава 505",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8385",
+      "chapter": 505,
+      "line": 8385,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-517-8625",
+      "title": "Повелитель тайн, глава 517",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8625",
+      "chapter": 517,
+      "line": 8625,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-505-8398",
+      "title": "Повелитель тайн, глава 505",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8398",
+      "chapter": 505,
+      "line": 8398,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-517-8630",
+      "title": "Повелитель тайн, глава 517",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8630",
+      "chapter": 517,
+      "line": 8630,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-1334-22260",
+      "title": "Повелитель тайн, глава 1334",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L22260",
+      "chapter": 1334,
+      "line": 22260,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-597-10021",
+      "title": "Повелитель тайн, глава 597",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10021",
+      "chapter": 597,
+      "line": 10021,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-600-10073",
+      "title": "Повелитель тайн, глава 600",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10073",
+      "chapter": 600,
+      "line": 10073,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-523-8718",
+      "title": "Повелитель тайн, глава 523",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8718",
+      "chapter": 523,
+      "line": 8718,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-531-8858",
+      "title": "Повелитель тайн, глава 531",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8858",
+      "chapter": 531,
+      "line": 8858,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-533-8898",
+      "title": "Повелитель тайн, глава 533",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L8898",
+      "chapter": 533,
+      "line": 8898,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-574-9624",
+      "title": "Повелитель тайн, глава 574",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9624",
+      "chapter": 574,
+      "line": 9624,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-575-9630",
+      "title": "Повелитель тайн, глава 575",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9630",
+      "chapter": 575,
+      "line": 9630,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-602-10105",
+      "title": "Повелитель тайн, глава 602",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10105",
+      "chapter": 602,
+      "line": 10105,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-604-10139",
+      "title": "Повелитель тайн, глава 604",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10139",
+      "chapter": 604,
+      "line": 10139,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-611-10251",
+      "title": "Повелитель тайн, глава 611",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10251",
+      "chapter": 611,
+      "line": 10251,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-634-10626",
+      "title": "Повелитель тайн, глава 634",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10626",
+      "chapter": 634,
+      "line": 10626,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-634-10630",
+      "title": "Повелитель тайн, глава 634",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L10630",
+      "chapter": 634,
+      "line": 10630,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-687-11555",
+      "title": "Повелитель тайн, глава 687",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L11555",
+      "chapter": 687,
+      "line": 11555,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-687-11561",
+      "title": "Повелитель тайн, глава 687",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L11561",
+      "chapter": 687,
+      "line": 11561,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-688-11575",
+      "title": "Повелитель тайн, глава 688",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L11575",
+      "chapter": 688,
+      "line": 11575,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-903-14968",
+      "title": "Повелитель тайн, глава 903",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L14968",
+      "chapter": 903,
+      "line": 14968,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-904-14984",
+      "title": "Повелитель тайн, глава 904",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L14984",
+      "chapter": 904,
+      "line": 14984,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-905-14988",
+      "title": "Повелитель тайн, глава 905",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L14988",
+      "chapter": 905,
+      "line": 14988,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-906-15015",
+      "title": "Повелитель тайн, глава 906",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L15015",
+      "chapter": 906,
+      "line": 15015,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-906-15020",
+      "title": "Повелитель тайн, глава 906",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L15020",
+      "chapter": 906,
+      "line": 15020,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-592-9928",
+      "title": "Повелитель тайн, глава 592",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9928",
+      "chapter": 592,
+      "line": 9928,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-592-9929",
+      "title": "Повелитель тайн, глава 592",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L9929",
+      "chapter": 592,
+      "line": 9929,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-674-11337",
+      "title": "Повелитель тайн, глава 674",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L11337",
+      "chapter": 674,
+      "line": 11337,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-703-11809",
+      "title": "Повелитель тайн, глава 703",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L11809",
+      "chapter": 703,
+      "line": 11809,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    },
+    {
+      "id": "book-893-14812",
+      "title": "Повелитель тайн, глава 893",
+      "url": "https://github.com/Madhukar-Palakaveeti/Chat-With-LOTM/blob/b0caf9e4ebfd1781132840d12fe51751bf6df29a/resources/paragraphs.txt#L14812",
+      "chapter": 893,
+      "line": 14812,
+      "sourceType": "Публичное зеркало текста; не официальный издательский ресурс."
+    }
+  ],
+  "stations": [
+    {
+      "id": "backlund",
+      "name": "Бэклунд",
+      "x": 54.45945945945946,
+      "y": 29.131578947368418,
+      "note": "Городская привязка к символу на фанатской карте; точное положение железнодорожной станции не установлено."
+    },
+    {
+      "id": "belltaine",
+      "name": "Беллтайн",
+      "x": 51.63513513513514,
+      "y": 27.368421052631582,
+      "note": "Городская привязка к символу на фанатской карте; точное положение станции не установлено."
+    },
+    {
+      "id": "conant",
+      "name": "Конант",
+      "x": 50.93243243243243,
+      "y": 33.39473684210526,
+      "note": "Городская привязка к символу на фанатской карте; точное положение железнодорожной станции не установлено."
+    },
+    {
+      "id": "constant",
+      "name": "Констант",
+      "x": 51.17567567567568,
+      "y": 26.526315789473685,
+      "note": "Городская привязка к символу на фанатской карте; точное положение железнодорожной станции не установлено."
+    },
+    {
+      "id": "enmat",
+      "name": "Порт Энмат",
+      "x": 55.58108108108109,
+      "y": 26.894736842105267,
+      "note": "Городская привязка к символу на фанатской карте; точное положение железнодорожной станции не установлено."
+    },
+    {
+      "id": "pritz",
+      "name": "Порт Приц",
+      "x": 54.7972972972973,
+      "y": 29.789473684210527,
+      "note": "Городская привязка к символу на фанатской карте; точное положение железнодорожной станции не установлено."
+    },
+    {
+      "id": "tingen",
+      "name": "Тинген",
+      "x": 53.9054054054054,
+      "y": 26.526315789473685,
+      "note": "Городская привязка к символу на фанатской карте; точное положение железнодорожной станции не установлено."
+    }
+  ],
+  "railServices": [
+    {
+      "id": "rail-tingen-backlund",
+      "name": "Тинген — Бэклунд",
+      "from": "tingen",
+      "to": "backlund",
+      "points": [
+        [
+          53.9054054054054,
+          26.526315789473685
+        ],
+        [
+          53.75675675675675,
+          27.105263157894736
+        ],
+        [
+          53.93243243243243,
+          27.89473684210526
+        ],
+        [
+          54.16216216216216,
+          28.52631578947368
+        ],
+        [
+          54.45945945945946,
+          29.131578947368418
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-213-3456",
+          "book-126-2020"
+        ],
+        "claim": "Пассажирский поезд из Тингена в Бэклунд; в тексте указано около четырёх часов в пути. Wienia названа первой остановкой поезда Тинген—Бэклунд.",
+        "note": "Wienia — первая остановка. Геометрия пути и точные координаты промежуточного города не опубликованы.",
+        "geometry": "schematic",
+        "canonicalDuration": "около 4 часов; первая остановка — Виения (Wienia), её координаты не установлены",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    },
+    {
+      "id": "rail-tingen-enmat",
+      "name": "Тинген — порт Энмат",
+      "from": "tingen",
+      "to": "enmat",
+      "points": [
+        [
+          53.9054054054054,
+          26.526315789473685
+        ],
+        [
+          54.09459459459459,
+          26.81578947368421
+        ],
+        [
+          54.45945945945946,
+          26.94736842105263
+        ],
+        [
+          55.00000000000001,
+          27.105263157894736
+        ],
+        [
+          55.36486486486486,
+          27.052631578947366
+        ],
+        [
+          55.58108108108109,
+          26.894736842105267
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-12-226",
+          "book-56-892"
+        ],
+        "claim": "Клейн рассматривает выезд из Тингена поездом на восток в порт Энмат. Джойс возвращается из порта Энмат домой в Тинген на паровозе.",
+        "note": "В главе 56 Джойс возвращается поездом из Энмата в Тинген; это не только гипотетический план.",
+        "geometry": "schematic",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    },
+    {
+      "id": "rail-soaring-express",
+      "name": "Soaring Express — линия до Константа",
+      "from": "tingen",
+      "to": "constant",
+      "points": [
+        [
+          53.9054054054054,
+          26.526315789473685
+        ],
+        [
+          53.51351351351351,
+          26.31578947368421
+        ],
+        [
+          53.04054054054054,
+          26.157894736842106
+        ],
+        [
+          52.54054054054053,
+          26.105263157894736
+        ],
+        [
+          52.02702702702703,
+          26.31578947368421
+        ],
+        [
+          51.554054054054056,
+          26.526315789473685
+        ],
+        [
+          51.17567567567568,
+          26.526315789473685
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "contextual",
+        "sourceIds": [
+          "book-17-304"
+        ],
+        "claim": "Назван паровой экспресс Soaring Express, начинающий прямое сообщение с Константом.",
+        "note": "Отправление именно из Тингена выводится из контекста местной газеты; исходная цитата называет только конечный Констант. Поэтому полная связь Тинген—Констант отмечается как реконструкция.",
+        "geometry": "schematic",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    },
+    {
+      "id": "rail-backlund-pritz",
+      "name": "Бэклунд — порт Приц",
+      "from": "backlund",
+      "to": "pritz",
+      "points": [
+        [
+          54.45945945945946,
+          29.131578947368418
+        ],
+        [
+          54.52702702702703,
+          29.342105263157897
+        ],
+        [
+          54.63513513513514,
+          29.526315789473685
+        ],
+        [
+          54.7972972972973,
+          29.789473684210527
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-406-6710"
+        ],
+        "claim": "Форс планирует поездку поездом из Бэклунда в Приц; названо время примерно около часа.",
+        "note": "В главе 407 Форс действительно прибывает в порт поездом.",
+        "geometry": "schematic",
+        "canonicalDuration": "около 1 часа",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    },
+    {
+      "id": "rail-pritz-conant",
+      "name": "Порт Приц — Конант",
+      "from": "pritz",
+      "to": "conant",
+      "points": [
+        [
+          54.7972972972973,
+          29.789473684210527
+        ],
+        [
+          54.63513513513514,
+          29.526315789473685
+        ],
+        [
+          54.52702702702703,
+          29.342105263157897
+        ],
+        [
+          54.18918918918919,
+          30.0
+        ],
+        [
+          53.71621621621622,
+          30.92105263157895
+        ],
+        [
+          53.04054054054054,
+          31.57894736842105
+        ],
+        [
+          52.22972972972973,
+          32.23684210526316
+        ],
+        [
+          51.554054054054056,
+          32.89473684210527
+        ],
+        [
+          50.93243243243243,
+          33.39473684210526
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-731-12265"
+        ],
+        "claim": "Клейн садится на поезд возле порта Приц и направляется в Конант в заливе Дези.",
+        "note": "",
+        "geometry": "schematic",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    },
+    {
+      "id": "rail-conant-backlund",
+      "name": "Конант — Бэклунд",
+      "from": "conant",
+      "to": "backlund",
+      "points": [
+        [
+          50.93243243243243,
+          33.39473684210526
+        ],
+        [
+          51.37837837837837,
+          32.8421052631579
+        ],
+        [
+          52.09459459459459,
+          32.36842105263158
+        ],
+        [
+          52.702702702702695,
+          31.63157894736842
+        ],
+        [
+          53.24324324324324,
+          30.789473684210527
+        ],
+        [
+          53.918918918918926,
+          29.736842105263158
+        ],
+        [
+          54.45945945945946,
+          29.131578947368418
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-732-12279",
+          "book-975-16147",
+          "book-1333-22234"
+        ],
+        "claim": "После прибытия в Конант в предыдущей главе Клейн покупает билет в Бэклунд и приезжает туда поездом. Подтверждён поезд из залива Дези до Бэклунда. Подтверждены железные дороги из залива Дези, ведущие в Бэклунд; станции Утопия на них официально нет.",
+        "note": "Глава 975 и главы 1333–1334 дополнительно подтверждают железнодорожное сообщение залива Дези с Бэклундом.",
+        "geometry": "schematic",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    },
+    {
+      "id": "rail-belltaine-constant",
+      "name": "Беллтайн — Констант",
+      "from": "belltaine",
+      "to": "constant",
+      "points": [
+        [
+          51.63513513513514,
+          27.368421052631582
+        ],
+        [
+          51.59459459459459,
+          26.973684210526315
+        ],
+        [
+          51.45945945945945,
+          26.789473684210524
+        ],
+        [
+          51.32432432432432,
+          26.57894736842105
+        ],
+        [
+          51.17567567567568,
+          26.526315789473685
+        ]
+      ],
+      "speedKmh": 40,
+      "dockMinutes": 5,
+      "serviceKind": "rail-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1280-21327"
+        ],
+        "claim": "Клейн едет в поезде, направляющемся в Констант, и выходит на промежуточной станции Беллтайна.",
+        "note": "Документирована принадлежность Беллтайна маршруту до Константа. Исходная станция поезда в этой сцене не названа.",
+        "geometry": "schematic",
+        "simulationNote": "Игровой поезд и обратный рейс моделируются по сетке 1500 км² на клетку при 40 км/ч и 5-минутной стоянке. Это не расписание из романа."
+      }
+    }
+  ],
+  "extraPorts": [
+    {
+      "id": "enmat",
+      "name": "Порт Энмат",
+      "island": "Королевство Лоэн",
+      "kind": "harbor",
+      "x": 55.97297297297297,
+      "y": 27.368421052631582,
+      "note": "Условная морская привязка у гавани к востоку от городского символа. Точное положение причалов текстом/картой не задано."
+    },
+    {
+      "id": "kolain",
+      "name": "Колайн",
+      "island": "Восточный Балам",
+      "kind": "harbor",
+      "x": 59.027027027027025,
+      "y": 47.368421052631575,
+      "note": "Колайн на северном побережье East Balam, не Behrens Harbor в West Balam. Причальная привязка выбрана в воде прямо к северу от городского символа; точная гавань не нанесена."
+    }
+  ],
+  "seaServices": [
+    {
+      "id": "source-white-agate-main",
+      "name": "Белый агат: обычный рейс Приц — Байам",
+      "speedKnots": 13,
+      "dockMinutes": 60,
+      "stopIds": [
+        "pritz",
+        "damir",
+        "tiana",
+        "bayam"
+      ],
+      "legs": [
+        {
+          "from": "pritz",
+          "to": "damir",
+          "points": [
+            [
+              54.972972972972975,
+              30.473684210526315
+            ],
+            [
+              55.270270270270274,
+              31.31578947368421
+            ],
+            [
+              55.54054054054054,
+              32.631578947368425
+            ],
+            [
+              55.472972972972975,
+              33.421052631578945
+            ],
+            [
+              55.067567567567565,
+              33.68421052631579
+            ]
+          ]
+        },
+        {
+          "from": "damir",
+          "to": "tiana",
+          "points": [
+            [
+              55.067567567567565,
+              33.68421052631579
+            ],
+            [
+              55.270270270270274,
+              34.0
+            ],
+            [
+              55.54054054054054,
+              34.473684210526315
+            ],
+            [
+              55.81081081081081,
+              35.13157894736842
+            ],
+            [
+              55.648648648648646,
+              35.6578947368421
+            ],
+            [
+              55.97297297297297,
+              35.78947368421053
+            ],
+            [
+              56.28378378378378,
+              36.31578947368421
+            ],
+            [
+              56.08108108108109,
+              36.84210526315789
+            ],
+            [
+              55.67567567567567,
+              37.10526315789473
+            ]
+          ]
+        },
+        {
+          "from": "tiana",
+          "to": "bayam",
+          "points": [
+            [
+              55.67567567567567,
+              37.10526315789473
+            ],
+            [
+              55.945945945945944,
+              36.84210526315789
+            ],
+            [
+              56.351351351351354,
+              36.71052631578947
+            ],
+            [
+              56.75675675675676,
+              37.76315789473684
+            ],
+            [
+              57.432432432432435,
+              38.421052631578945
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.97297297297297,
+              39.21052631578947
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        },
+        {
+          "from": "bayam",
+          "to": "pritz",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              57.90540540540541,
+              39.21052631578947
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.567567567567565,
+              37.76315789473684
+            ],
+            [
+              56.89189189189189,
+              36.05263157894737
+            ],
+            [
+              56.41891891891891,
+              34.21052631578947
+            ],
+            [
+              55.81081081081081,
+              32.631578947368425
+            ],
+            [
+              55.270270270270274,
+              31.18421052631579
+            ],
+            [
+              54.972972972972975,
+              30.473684210526315
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "regular-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-490-8148",
+          "book-497-8262",
+          "book-505-8385",
+          "book-517-8625"
+        ],
+        "claim": "В порту Приц предлагаются пассажирские билеты на White Agate и Saint Havre в Рорстедский архипелаг. White Agate заходит в Дамир для пополнения продовольствия и воды, с выходом на следующее утро. После Дамира обычный план White Agate предусматривает Тиану, затем Байам; от Дамира до Тианы указаны три дня при 13 узлах. Фактическое путешествие прошло через Тиану и завершилось в Байаме; помощь ветра дала устойчивые 15 узлов.",
+        "note": "Подтверждённая обычная последовательность. Возвратные порты по порядку автоматически не подтверждены. Длительности из книги могут расходиться с ETA по пользовательской сетке 1500 км².",
+        "geometry": "schematic",
+        "canonicalDuration": "Дамир — Тиана: 3 суток при 13 узлах",
+        "vessel": "White Agate / Белый агат",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-white-agate-bansy-detour",
+      "name": "Белый агат: описанный заход в Банси",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "pritz",
+        "damir",
+        "bansy",
+        "tiana",
+        "bayam"
+      ],
+      "legs": [
+        {
+          "from": "pritz",
+          "to": "damir",
+          "points": [
+            [
+              54.972972972972975,
+              30.473684210526315
+            ],
+            [
+              55.270270270270274,
+              31.31578947368421
+            ],
+            [
+              55.54054054054054,
+              32.631578947368425
+            ],
+            [
+              55.472972972972975,
+              33.421052631578945
+            ],
+            [
+              55.067567567567565,
+              33.68421052631579
+            ]
+          ]
+        },
+        {
+          "from": "damir",
+          "to": "bansy",
+          "points": [
+            [
+              55.067567567567565,
+              33.68421052631579
+            ],
+            [
+              55.270270270270274,
+              34.0
+            ],
+            [
+              55.54054054054054,
+              34.473684210526315
+            ],
+            [
+              55.81081081081081,
+              35.13157894736842
+            ],
+            [
+              55.648648648648646,
+              35.6578947368421
+            ]
+          ]
+        },
+        {
+          "from": "bansy",
+          "to": "tiana",
+          "points": [
+            [
+              55.648648648648646,
+              35.6578947368421
+            ],
+            [
+              55.97297297297297,
+              35.78947368421053
+            ],
+            [
+              56.28378378378378,
+              36.31578947368421
+            ],
+            [
+              56.08108108108109,
+              36.84210526315789
+            ],
+            [
+              55.67567567567567,
+              37.10526315789473
+            ]
+          ]
+        },
+        {
+          "from": "tiana",
+          "to": "bayam",
+          "points": [
+            [
+              55.67567567567567,
+              37.10526315789473
+            ],
+            [
+              55.945945945945944,
+              36.84210526315789
+            ],
+            [
+              56.351351351351354,
+              36.71052631578947
+            ],
+            [
+              56.75675675675676,
+              37.76315789473684
+            ],
+            [
+              57.432432432432435,
+              38.421052631578945
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.97297297297297,
+              39.21052631578947
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        },
+        {
+          "from": "bayam",
+          "to": "pritz",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              57.90540540540541,
+              39.21052631578947
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.567567567567565,
+              37.76315789473684
+            ],
+            [
+              56.89189189189189,
+              36.05263157894737
+            ],
+            [
+              56.41891891891891,
+              34.21052631578947
+            ],
+            [
+              55.81081081081081,
+              32.631578947368425
+            ],
+            [
+              55.270270270270274,
+              31.18421052631579
+            ],
+            [
+              54.972972972972975,
+              30.473684210526315
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "documented-voyage",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-505-8385",
+          "book-505-8398",
+          "book-517-8625",
+          "book-517-8630"
+        ],
+        "claim": "Капитан решает остановиться в Банси после встречи с пиратами; это изменение обычного плана Дамир — Тиана. В этот день судно входит в Банси в 18:00. После Банси судно заходит в Тиану и приходит в Байам вечером 12-го вместо запланированного утра 13-го. Время фактического прибытия White Agate в Байам — 18:15.",
+        "note": "Это конкретный исторический рейс, а не доказательство обязательного захода каждого рейса в Банси.",
+        "geometry": "schematic",
+        "storyPeriod": "До последующего разрушения/закрытия Банси",
+        "vessel": "White Agate / Белый агат",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-pritz-bansy-bayam-fast",
+      "name": "Короткий морской путь Приц — Банси — Байам",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "pritz",
+        "bansy",
+        "bayam"
+      ],
+      "legs": [
+        {
+          "from": "pritz",
+          "to": "bansy",
+          "points": [
+            [
+              54.972972972972975,
+              30.473684210526315
+            ],
+            [
+              55.270270270270274,
+              31.31578947368421
+            ],
+            [
+              55.54054054054054,
+              32.631578947368425
+            ],
+            [
+              55.472972972972975,
+              33.421052631578945
+            ],
+            [
+              55.067567567567565,
+              33.68421052631579
+            ],
+            [
+              55.270270270270274,
+              34.0
+            ],
+            [
+              55.54054054054054,
+              34.473684210526315
+            ],
+            [
+              55.81081081081081,
+              35.13157894736842
+            ],
+            [
+              55.648648648648646,
+              35.6578947368421
+            ]
+          ]
+        },
+        {
+          "from": "bansy",
+          "to": "bayam",
+          "points": [
+            [
+              55.648648648648646,
+              35.6578947368421
+            ],
+            [
+              55.97297297297297,
+              35.78947368421053
+            ],
+            [
+              56.28378378378378,
+              36.31578947368421
+            ],
+            [
+              56.08108108108109,
+              36.84210526315789
+            ],
+            [
+              55.67567567567567,
+              37.10526315789473
+            ],
+            [
+              55.945945945945944,
+              36.84210526315789
+            ],
+            [
+              56.351351351351354,
+              36.71052631578947
+            ],
+            [
+              56.75675675675676,
+              37.76315789473684
+            ],
+            [
+              57.432432432432435,
+              38.421052631578945
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.97297297297297,
+              39.21052631578947
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        },
+        {
+          "from": "bayam",
+          "to": "pritz",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              57.90540540540541,
+              39.21052631578947
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.567567567567565,
+              37.76315789473684
+            ],
+            [
+              56.89189189189189,
+              36.05263157894737
+            ],
+            [
+              56.41891891891891,
+              34.21052631578947
+            ],
+            [
+              55.81081081081081,
+              32.631578947368425
+            ],
+            [
+              55.270270270270274,
+              31.18421052631579
+            ],
+            [
+              54.972972972972975,
+              30.473684210526315
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "regular-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-505-8385",
+          "book-1334-22260"
+        ],
+        "claim": "Прямо упомянут более быстрый путь Приц — Байам с единственной промежуточной остановкой в Банси; Банси примерно в 120 морских милях от Дамира. Позднее Банси не восстановлен и регулярные лайнеры туда не ходят.",
+        "note": "Название судна и регулярное расписание не даны. Доступность зависит от периода истории.",
+        "geometry": "schematic",
+        "storyPeriod": "До закрытия Банси",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-white-agate-return",
+      "name": "Белый агат: обратный рейс Байам — Приц",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "bayam",
+        "pritz"
+      ],
+      "legs": [
+        {
+          "from": "bayam",
+          "to": "pritz",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              57.90540540540541,
+              39.21052631578947
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.567567567567565,
+              37.76315789473684
+            ],
+            [
+              56.89189189189189,
+              36.05263157894737
+            ],
+            [
+              56.41891891891891,
+              34.21052631578947
+            ],
+            [
+              55.81081081081081,
+              32.631578947368425
+            ],
+            [
+              55.270270270270274,
+              31.18421052631579
+            ],
+            [
+              54.972972972972975,
+              30.473684210526315
+            ]
+          ]
+        },
+        {
+          "from": "pritz",
+          "to": "bayam",
+          "points": [
+            [
+              54.972972972972975,
+              30.473684210526315
+            ],
+            [
+              55.270270270270274,
+              31.18421052631579
+            ],
+            [
+              55.81081081081081,
+              32.631578947368425
+            ],
+            [
+              56.41891891891891,
+              34.21052631578947
+            ],
+            [
+              56.89189189189189,
+              36.05263157894737
+            ],
+            [
+              57.567567567567565,
+              37.76315789473684
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.90540540540541,
+              39.21052631578947
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "regular-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-597-10021",
+          "book-600-10073"
+        ],
+        "claim": "Упомянуто, что White Agate скоро возвращается в порт Приц. Последующая сцена помещена на White Agate в гавани Байама.",
+        "note": "Подтверждены направление и порты. Обратный порядок всех промежуточных остановок в источнике здесь не задан.",
+        "geometry": "schematic",
+        "vessel": "White Agate / Белый агат",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-bayam-symeem-liner",
+      "name": "Лайнер Байам — Симиим",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "bayam",
+        "symeem"
+      ],
+      "legs": [
+        {
+          "from": "bayam",
+          "to": "symeem",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.04054054054054,
+              39.55263157894737
+            ],
+            [
+              57.90540540540541,
+              39.473684210526315
+            ],
+            [
+              57.78378378378378,
+              39.631578947368425
+            ],
+            [
+              57.770270270270274,
+              40.39473684210526
+            ],
+            [
+              58.24324324324325,
+              40.78947368421053
+            ],
+            [
+              59.189189189189186,
+              40.78947368421053
+            ],
+            [
+              60.06756756756757,
+              40.60526315789474
+            ],
+            [
+              60.47297297297297,
+              40.131578947368425
+            ]
+          ]
+        },
+        {
+          "from": "symeem",
+          "to": "bayam",
+          "points": [
+            [
+              60.47297297297297,
+              40.131578947368425
+            ],
+            [
+              60.06756756756757,
+              40.60526315789474
+            ],
+            [
+              59.189189189189186,
+              40.78947368421053
+            ],
+            [
+              58.24324324324325,
+              40.78947368421053
+            ],
+            [
+              57.770270270270274,
+              40.39473684210526
+            ],
+            [
+              57.78378378378378,
+              39.631578947368425
+            ],
+            [
+              57.90540540540541,
+              39.473684210526315
+            ],
+            [
+              58.04054054054054,
+              39.55263157894737
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "regular-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-523-8718",
+          "book-531-8858",
+          "book-533-8898"
+        ],
+        "claim": "От Байама до Симиима лайнер идёт четыре-пять часов; указаны два ежедневных рейса в 09:00 и 10:00. Поездка на Симиим занимает почти пять часов. Обратный билет Клейна с Симиима куплен на лайнер в 09:00; также имеется более поздний лайнер в 10:00.",
+        "note": "Симиим имеет подтверждённое пассажирское сообщение: его нельзя характеризовать только как необслуживаемый экспедиционный рейд. Календарь кампании может менять доступность.",
+        "geometry": "schematic",
+        "canonicalDuration": "4–5 игровых часов по тексту книги",
+        "departureTimes": [
+          "09:00",
+          "10:00"
+        ],
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-bayam-dilynius-gargas",
+      "name": "Путешествие Байам — Дилимиус — Гаргас",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "bayam",
+        "dilymius"
+      ],
+      "legs": [
+        {
+          "from": "bayam",
+          "to": "dilymius",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.108108108108105,
+              40.131578947368425
+            ],
+            [
+              57.7027027027027,
+              40.578947368421055
+            ],
+            [
+              57.351351351351354,
+              40.78947368421053
+            ]
+          ]
+        },
+        {
+          "from": "dilymius",
+          "to": "bayam",
+          "points": [
+            [
+              57.351351351351354,
+              40.78947368421053
+            ],
+            [
+              57.7027027027027,
+              40.578947368421055
+            ],
+            [
+              58.108108108108105,
+              40.131578947368425
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "documented-voyage",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-574-9624",
+          "book-575-9630"
+        ],
+        "claim": "Клейн и Даниц садятся на лайнер к гавани Дилимиуса; ожидаемое время — десять часов. Безопасный путь из Байама в Дилимиус извилист; после прибытия покупаются новые билеты и следующая поездка заканчивается в Гаргасе на рассвете.",
+        "note": "В Дилимиусе происходит пересадка/покупка новых билетов. Название конечного порта Гаргаса здесь не уточнено: Нас можно использовать лишь как отмеченную реконструкцию.",
+        "geometry": "schematic",
+        "canonicalDuration": "Байам — Дилимиус: около 10 часов",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-bayam-oravi-liner",
+      "name": "Лайнер Байам — Орави",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "bayam",
+        "oravi"
+      ],
+      "legs": [
+        {
+          "from": "bayam",
+          "to": "oravi",
+          "points": [
+            [
+              58.351351351351354,
+              39.421052631578945
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              57.97297297297297,
+              39.21052631578947
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.770270270270274,
+              37.368421052631575
+            ],
+            [
+              57.97297297297297,
+              36.05263157894737
+            ],
+            [
+              58.78378378378378,
+              35.0
+            ],
+            [
+              59.32432432432433,
+              34.73684210526316
+            ],
+            [
+              59.66216216216216,
+              34.73684210526316
+            ],
+            [
+              60.13513513513513,
+              34.868421052631575
+            ],
+            [
+              60.67567567567568,
+              35.0
+            ],
+            [
+              60.945945945945944,
+              35.21052631578947
+            ]
+          ]
+        },
+        {
+          "from": "oravi",
+          "to": "bayam",
+          "points": [
+            [
+              60.945945945945944,
+              35.21052631578947
+            ],
+            [
+              60.67567567567568,
+              35.0
+            ],
+            [
+              60.13513513513513,
+              34.868421052631575
+            ],
+            [
+              59.66216216216216,
+              34.73684210526316
+            ],
+            [
+              59.32432432432433,
+              34.73684210526316
+            ],
+            [
+              58.78378378378378,
+              35.0
+            ],
+            [
+              57.97297297297297,
+              36.05263157894737
+            ],
+            [
+              57.770270270270274,
+              37.368421052631575
+            ],
+            [
+              58.04054054054054,
+              38.631578947368425
+            ],
+            [
+              57.97297297297297,
+              39.21052631578947
+            ],
+            [
+              58.108108108108105,
+              39.60526315789474
+            ],
+            [
+              58.24324324324325,
+              39.68421052631579
+            ],
+            [
+              58.351351351351354,
+              39.421052631578945
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "regular-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-602-10105",
+          "book-604-10139",
+          "book-611-10251"
+        ],
+        "claim": "Дарквилл планирует ранний рейс на Орави; остров назван остановкой на пути между Рорстедом и Тоскартером. Клейн и Дарквилл направляются в гавань Байама, чтобы успеть на самый ранний лайнер к Орави. Орави находится северо-восточнее Рорстеда; безопасный морской путь извилист и длиннее прямого на несколько сотен морских миль.",
+        "note": "Связь портов подтверждена, точная трасса и регулярные часы отправления не даны. Геометрию на карте следует помечать как реконструкцию.",
+        "geometry": "schematic",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-oravi-nas-liner",
+      "name": "Лайнер Орави — Нас",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "oravi",
+        "nas"
+      ],
+      "legs": [
+        {
+          "from": "oravi",
+          "to": "nas",
+          "points": [
+            [
+              60.945945945945944,
+              35.21052631578947
+            ],
+            [
+              61.05405405405405,
+              34.526315789473685
+            ],
+            [
+              61.28378378378378,
+              33.73684210526316
+            ],
+            [
+              61.55405405405405,
+              32.76315789473684
+            ],
+            [
+              61.85135135135135,
+              31.789473684210527
+            ],
+            [
+              62.08108108108108,
+              30.973684210526315
+            ]
+          ]
+        },
+        {
+          "from": "nas",
+          "to": "oravi",
+          "points": [
+            [
+              62.08108108108108,
+              30.973684210526315
+            ],
+            [
+              61.85135135135135,
+              31.789473684210527
+            ],
+            [
+              61.55405405405405,
+              32.76315789473684
+            ],
+            [
+              61.28378378378378,
+              33.73684210526316
+            ],
+            [
+              61.05405405405405,
+              34.526315789473685
+            ],
+            [
+              60.945945945945944,
+              35.21052631578947
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "regular-service",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-634-10626",
+          "book-634-10630"
+        ],
+        "claim": "После работы на Орави Клейн садится на судно в Гаргас, чтобы встретиться с Каттлеей в его столице — Насе. Клейн сходит с лайнера в гавани Гаргаса перед встречей с пиратами.",
+        "note": "Маршрут подтверждён. Продолжение на Future — отдельная экспедиция, не обычный пароходный рейс.",
+        "geometry": "schematic",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-toscarter-oravi-liner",
+      "name": "Лайнер Тоскартер — Орави",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "toscarter",
+        "oravi"
+      ],
+      "legs": [
+        {
+          "from": "toscarter",
+          "to": "oravi",
+          "points": [
+            [
+              63.64864864864865,
+              35.89473684210526
+            ],
+            [
+              63.24324324324324,
+              35.0
+            ],
+            [
+              62.43243243243243,
+              34.21052631578947
+            ],
+            [
+              61.62162162162163,
+              34.21052631578947
+            ],
+            [
+              60.945945945945944,
+              35.21052631578947
+            ]
+          ]
+        },
+        {
+          "from": "oravi",
+          "to": "toscarter",
+          "points": [
+            [
+              60.945945945945944,
+              35.21052631578947
+            ],
+            [
+              61.62162162162163,
+              34.21052631578947
+            ],
+            [
+              62.43243243243243,
+              34.21052631578947
+            ],
+            [
+              63.24324324324324,
+              35.0
+            ],
+            [
+              63.64864864864865,
+              35.89473684210526
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "documented-voyage",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-687-11555",
+          "book-687-11561",
+          "book-688-11575"
+        ],
+        "claim": "Перед отплытием Клейн находится у пристани Тоскартера. Клейн и Андерсон садятся на пассажирское судно. После двухдневного путешествия лайнер приходит на Орави.",
+        "note": "Подтверждена конкретная поездка пассажирским лайнером; название и полный периодический график не указаны.",
+        "geometry": "schematic",
+        "canonicalDuration": "2 суток",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-esk-el-balam-voyage",
+      "name": "Лайнер Эскелсон — Халман — Вэйпойнт — Колайн",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "eskelson",
+        "halman",
+        "waypoint",
+        "kolain"
+      ],
+      "legs": [
+        {
+          "from": "eskelson",
+          "to": "halman",
+          "points": [
+            [
+              50.445945945945944,
+              36.973684210526315
+            ],
+            [
+              50.810810810810814,
+              36.578947368421055
+            ],
+            [
+              51.21621621621622,
+              37.10526315789473
+            ],
+            [
+              51.486486486486484,
+              37.84210526315789
+            ]
+          ]
+        },
+        {
+          "from": "halman",
+          "to": "waypoint",
+          "points": [
+            [
+              51.486486486486484,
+              37.84210526315789
+            ],
+            [
+              51.689189189189186,
+              36.973684210526315
+            ],
+            [
+              52.16216216216216,
+              36.973684210526315
+            ],
+            [
+              52.702702702702695,
+              37.89473684210527
+            ],
+            [
+              52.702702702702695,
+              39.473684210526315
+            ],
+            [
+              52.94594594594595,
+              40.473684210526315
+            ]
+          ]
+        },
+        {
+          "from": "waypoint",
+          "to": "kolain",
+          "points": [
+            [
+              52.94594594594595,
+              40.473684210526315
+            ],
+            [
+              52.83783783783784,
+              41.05263157894737
+            ],
+            [
+              52.94594594594595,
+              41.78947368421053
+            ],
+            [
+              53.37837837837838,
+              42.368421052631575
+            ],
+            [
+              54.054054054054056,
+              43.94736842105263
+            ],
+            [
+              55.00000000000001,
+              45.0
+            ],
+            [
+              56.08108108108109,
+              45.78947368421053
+            ],
+            [
+              57.16216216216217,
+              46.05263157894737
+            ],
+            [
+              58.108108108108105,
+              46.578947368421055
+            ],
+            [
+              58.648648648648646,
+              47.10526315789474
+            ],
+            [
+              59.027027027027025,
+              47.368421052631575
+            ]
+          ]
+        },
+        {
+          "from": "kolain",
+          "to": "eskelson",
+          "points": [
+            [
+              59.027027027027025,
+              47.368421052631575
+            ],
+            [
+              58.648648648648646,
+              47.10526315789474
+            ],
+            [
+              58.108108108108105,
+              46.578947368421055
+            ],
+            [
+              57.16216216216217,
+              46.05263157894737
+            ],
+            [
+              56.08108108108109,
+              45.78947368421053
+            ],
+            [
+              55.00000000000001,
+              45.0
+            ],
+            [
+              54.054054054054056,
+              43.94736842105263
+            ],
+            [
+              53.37837837837838,
+              42.368421052631575
+            ],
+            [
+              52.94594594594595,
+              41.78947368421053
+            ],
+            [
+              52.83783783783784,
+              41.05263157894737
+            ],
+            [
+              52.94594594594595,
+              40.473684210526315
+            ],
+            [
+              52.702702702702695,
+              39.473684210526315
+            ],
+            [
+              52.702702702702695,
+              37.89473684210527
+            ],
+            [
+              52.16216216216216,
+              36.973684210526315
+            ],
+            [
+              51.689189189189186,
+              36.973684210526315
+            ],
+            [
+              51.486486486486484,
+              37.84210526315789
+            ],
+            [
+              51.21621621621622,
+              37.10526315789473
+            ],
+            [
+              50.810810810810814,
+              36.578947368421055
+            ],
+            [
+              50.445945945945944,
+              36.973684210526315
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "documented-voyage",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-903-14968",
+          "book-904-14984",
+          "book-905-14988",
+          "book-906-15015",
+          "book-906-15020"
+        ],
+        "claim": "Сцена начинается в гавани Эскелсон в заливе Дези; Клейн приобретает билет на гибридный пароходно-парусный лайнер в Восточный Балам. Из-за погоды выбран более длинный безопасный путь и ночная стоянка в гавани Халман. Утром судно выходит из Халмана. Следующая сцена лайнера — стоянка на острове Вэйпойнт. Клейн сходит на причал Колайна в Восточном Баламе.",
+        "note": "Халман и Вэйпойнт подтверждены для этой поездки при погодном обходе. Это не то же направление, что Беренс в Западном Баламе.",
+        "geometry": "schematic",
+        "vessel": "Безымянный пароходно-парусный лайнер",
+        "simulationNote": "Нарисован безопасный водный коридор между указанными стоянками. Повторение и обратное замыкание — игровая анимация; неуказанные в книге промежуточные остановки и периодичность не утверждаются."
+      }
+    },
+    {
+      "id": "source-enmat-pritz-plan",
+      "name": "Морской путь Энмат — Приц",
+      "speedKnots": 12,
+      "dockMinutes": 60,
+      "stopIds": [
+        "enmat",
+        "pritz"
+      ],
+      "legs": [
+        {
+          "from": "enmat",
+          "to": "pritz",
+          "points": [
+            [
+              55.97297297297297,
+              27.368421052631582
+            ],
+            [
+              56.28378378378378,
+              27.76315789473684
+            ],
+            [
+              56.41891891891891,
+              28.421052631578945
+            ],
+            [
+              56.351351351351354,
+              29.47368421052631
+            ],
+            [
+              56.08108108108109,
+              30.210526315789473
+            ],
+            [
+              55.67567567567567,
+              30.526315789473685
+            ],
+            [
+              55.270270270270274,
+              30.710526315789473
+            ],
+            [
+              55.067567567567565,
+              30.605263157894736
+            ],
+            [
+              54.972972972972975,
+              30.473684210526315
+            ]
+          ]
+        },
+        {
+          "from": "pritz",
+          "to": "enmat",
+          "points": [
+            [
+              54.972972972972975,
+              30.473684210526315
+            ],
+            [
+              55.067567567567565,
+              30.605263157894736
+            ],
+            [
+              55.270270270270274,
+              30.710526315789473
+            ],
+            [
+              55.67567567567567,
+              30.526315789473685
+            ],
+            [
+              56.08108108108109,
+              30.210526315789473
+            ],
+            [
+              56.351351351351354,
+              29.47368421052631
+            ],
+            [
+              56.41891891891891,
+              28.421052631578945
+            ],
+            [
+              56.28378378378378,
+              27.76315789473684
+            ],
+            [
+              55.97297297297297,
+              27.368421052631582
+            ]
+          ]
+        }
+      ],
+      "serviceKind": "travel-plan",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-12-226"
+        ],
+        "claim": "План Клейна предусматривает поезд до Энмата, затем морской переход в Приц и дальнейший путь в Бэклунд.",
+        "note": "В главе описан план поездки, а не совершённый рейс. Промежуточные стоянки не названы.",
+        "geometry": "schematic",
+        "simulationNote": "Анимация направления и обратного пути реконструирована для игры."
+      }
+    }
+  ],
+  "unmapped": [
+    {
+      "id": "rail-backlund-east-chester",
+      "name": "Бэклунд — Восточный Честер",
+      "kind": "train",
+      "classificationLabel": "Подтверждено направление в графство; точная станция не названа",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-513-8563"
+        ],
+        "claim": "Одри собирается вернуться поездом из Бэклунда в графство Восточный Честер.",
+        "note": "Точное название конечной станции не приведено; точка на карте должна быть региональным условным терминалом.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-pritz-southville",
+      "name": "Порт Приц — Саутвилл",
+      "kind": "train",
+      "classificationLabel": "Подтверждено направление в графство; точная станция не названа",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1204-19965"
+        ],
+        "claim": "Дориан отправляется на вокзал Прица, чтобы ехать в Саутвилл.",
+        "note": "Southville — область/графство на карте; точная станция в главе не указана.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-blue-mountain",
+      "name": "Железные дороги острова Синей горы / Рорстедская компания",
+      "kind": "train",
+      "classificationLabel": "Региональная сеть подтверждена; станции не перечислены",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-542-9048",
+          "book-554-9274",
+          "book-558-9345"
+        ],
+        "claim": "На острове Синей горы колониальная администрация построила несколько важных железных дорог между промышленными городами. Названа Рорстедская железнодорожная компания. Из Байама видны железнодорожные линии; добыча и металлургия находятся в других городах острова.",
+        "note": "Не придумывать названия станций и конкретный полный граф. Допустима зона существующей ж/д сети или отдельно подписанная схема.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-bayam-new-silver",
+      "name": "Байам — Новый Серебряный город",
+      "kind": "train",
+      "classificationLabel": "Проект в указанной главе, не действующая линия",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1292-21521",
+          "book-1323-22056"
+        ],
+        "claim": "Даниц обещает расширить дорогу и построить железную дорогу к новому городу Серебра. Железную дорогу, соединяющую новый Серебряный город с другими городами, ещё требуют построить как можно скорее.",
+        "note": "В указанных главах это проект, а не действующий поезд. Новый город расположен за лесом рядом с естественной гаванью; точных координат нет.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "metro-backlund",
+      "name": "Паровoe метро Бэклунда",
+      "kind": "train",
+      "classificationLabel": "Городское метро: сеть подтверждена, мировой трассы нет",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-214-3475",
+          "book-215-3486",
+          "book-268-4366"
+        ],
+        "claim": "Метро возникло примерно за 25 лет до событий; сначала связывало берега Тассока, затем основные районы. Клейн выходит на одной из трёх станций метро района Черуд; поездка около 20 минут. Документирован выход метро на южном берегу Тассока.",
+        "note": "Подтверждено городское метро, но в книге нет пригодной для карты мира полной схемы с координатами. Не рисовать вымышленные линии по материковой карте как точный канон.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-western-company",
+      "name": "Western Railway / Западная железная дорога",
+      "kind": "train",
+      "classificationLabel": "Названа компания; география линий не установлена",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-325-5318"
+        ],
+        "claim": "В разговоре биржевиков названы акции Western Railway.",
+        "note": "Само название компании не доказывает маршрут Трир—Бэклунд или иной набор городов.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-limon-station",
+      "name": "Вокзал Лимона",
+      "kind": "train",
+      "classificationLabel": "Станция известна, направление не названо",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1315-21940"
+        ],
+        "claim": "Клейн покидает Лимон поездом.",
+        "note": "Направление и конечная станция в данном месте не названы; нельзя добавлять Лимон—Констант как подтверждённый прямой рейс.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-utopia-backlund",
+      "name": "Аномальная станция Утопия — Бэклунд",
+      "kind": "train",
+      "classificationLabel": "Сюжетная аномалия без постоянной мировой привязки",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1330-22171",
+          "book-1333-22234"
+        ],
+        "claim": "Вендель едет поездом к Бэклунду; поезд из-за бури останавливается в Утопии. На настоящих линиях Дези—Бэклунд станции Утопия нет.",
+        "note": "Сверхъестественно присоединённая остановка, не постоянная географическая ветка. Выносить в сюжетный слой без фиктивных фиксированных координат.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-utopia-freight",
+      "name": "Утопия — порт (местная грузовая линия)",
+      "kind": "train",
+      "classificationLabel": "Сюжетная аномалия без постоянной мировой привязки",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1328-22141"
+        ],
+        "claim": "Клейн создаёт грузовую железную дорогу от города Утопии до гавани, примерно в 3 км.",
+        "note": "Локальная искусственная/сверхъестественная система Утопии; не регулярная материковая линия.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-military-harbor",
+      "name": "Портовые военные грузовые пути",
+      "kind": "train",
+      "classificationLabel": "Локальные грузовые пути без конечных станций",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-880-14611"
+        ],
+        "claim": "У охраняемой гавани показаны грузовые железнодорожные пути и ожидающий паровоз.",
+        "note": "Конечные станции не названы; недостаточно данных для новой регулярной пассажирской линии.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "rail-that-corner-island",
+      "name": "Короткая линия неназванного острова (эпилог «Этот уголок»)",
+      "kind": "train",
+      "classificationLabel": "Эпилог / сновидение, вне обычной карты мира",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-1431-0"
+        ],
+        "claim": "На необычном острове показан паровоз и рельсы к городу длиной лишь100–200метров.",
+        "note": "Сюжетный неназванный остров без постоянных координат; не наносить какобычную материковую/Рорстедскую железнуюдорогу.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "passenger-daytime",
+      "name": "Пассажирские поезда после наступления темноты",
+      "kind": "train",
+      "classificationLabel": "Ограничение сети в указанной главе",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-126-2013",
+          "book-126-2016"
+        ],
+        "claim": "В ранней сцене поясняется, что после наступления темноты почти нет поездов, перевозящих людей, из-за отсутствия электрического освещения. Самый ранний упомянутый поезд отправляется в семь утра.",
+        "note": "Это не полное расписание всех поездов мира; позже ночные сцены/грузовые и военные рейсы требуют отдельного контекста.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "no-brindisi-direct",
+      "name": "Бухта Бриндизи: прямой железной дороги нет",
+      "kind": "train",
+      "classificationLabel": "Ограничение сети в указанной главе",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-17-304"
+        ],
+        "claim": "Розанна сетует на отсутствие прямой железной дороги до Brindisi Bay и необходимость плыть кораблём.",
+        "note": "Не дорисовывать прямую линию до бухты как подтверждённую на этот момент. Русская редакция называет Деси; английский текст Brindisi Bay, поэтому сохранить исходное имя и отметить переводное расхождение.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "saint-havre-rorsted",
+      "name": "Saint Havre: Приц — Рорстедский архипелаг",
+      "kind": "ship",
+      "classificationLabel": "Поездка / сообщение без точной трассы и полного расписания",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-490-8148"
+        ],
+        "claim": "Saint Havre и White Agate названы подходящими пассажирскими судами, направляющимися в Рорстедский архипелаг.",
+        "note": "Конкретные промежуточные остановки и конечная гавань Saint Havre в этом месте не перечислены. Нельзя без пометки приписывать ему полный маршрут White Agate.",
+        "geometry": "schematic",
+        "vessel": "Saint Havre"
+      }
+    },
+    {
+      "id": "dilynius-gargas-transfer",
+      "name": "Пересадка в Дилимиусе: продолжение в Гаргас",
+      "kind": "ship",
+      "classificationLabel": "Регион назначения подтверждён; порт прибытия не указан",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-574-9624",
+          "book-575-9630"
+        ],
+        "claim": "Клейн и Даниц садятся на лайнер к гавани Дилимиуса; ожидаемое время — десять часов. Безопасный путь из Байама в Дилимиус извилист; после прибытия покупаются новые билеты и следующая поездка заканчивается в Гаргасе на рассвете.",
+        "note": "В Дилимиусе происходит пересадка/покупка новых билетов. Название конечного порта Гаргаса здесь не уточнено: Нас можно использовать лишь как отмеченную реконструкцию.",
+        "geometry": "schematic",
+        "canonicalDuration": "Байам — Дилимиус: 10 часов"
+      }
+    },
+    {
+      "id": "bayam-east-balam-tickets",
+      "name": "Билеты Байам — Восточный Балам",
+      "kind": "ship",
+      "classificationLabel": "Поездка / сообщение без точной трассы и полного расписания",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-592-9928",
+          "book-592-9929"
+        ],
+        "claim": "Дарквилл направляется в билетную компанию гавани Байама. Он становится в очередь на лайнер в Восточный Балам.",
+        "note": "Подтверждается наличие продаваемого направления, но конечный порт и конкретный рейс не названы.",
+        "geometry": "schematic"
+      }
+    },
+    {
+      "id": "future-gargas-toscarter",
+      "name": "Future: Нас — восточные опасные воды — Тоскартер",
+      "kind": "ship",
+      "classificationLabel": "Поездка / сообщение без точной трассы и полного расписания",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-634-10626",
+          "book-674-11337"
+        ],
+        "claim": "Клейн договаривается встретиться с Каттлеей в Насе и затем отправиться на её корабле в опасные восточные воды моря Сони. После экспедиции Future приходит в порт Тоскартера, где Клейн сходит с корабля.",
+        "note": "Пиратский/мистический экспедиционный корабль. Прямая линия Нас — Тоскартер не является описанной трассой; нельзя выдавать этот путь за регулярный пароходный график.",
+        "geometry": "schematic",
+        "vessel": "Future / Будущее"
+      }
+    },
+    {
+      "id": "golden-dream-sonia",
+      "name": "Golden Dream: посещения острова Соня",
+      "kind": "ship",
+      "classificationLabel": "Поездка / сообщение без точной трассы и полного расписания",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-703-11809"
+        ],
+        "claim": "Эдвина сообщает, что Golden Dream часто посещает остров Соня.",
+        "note": "Подтверждены посещения, но не регулярный публичный паром, исходная гавань или фиксированное расписание.",
+        "geometry": "schematic",
+        "vessel": "Golden Dream / Золотая мечта"
+      }
+    },
+    {
+      "id": "golden-dream-behrens",
+      "name": "Golden Dream: приход в Беренс через море Тумана",
+      "kind": "ship",
+      "classificationLabel": "Поездка / сообщение без точной трассы и полного расписания",
+      "evidence": {
+        "status": "documented",
+        "sourceIds": [
+          "book-893-14812"
+        ],
+        "claim": "Golden Dream идёт на юг по морю Тумана, и Даниц через несколько дней прибывает в Беренс — северную гавань Западного Балама.",
+        "note": "Названо направление по морю и порт посещения; не установлены исходная гавань и регулярный рейс.",
+        "geometry": "schematic",
+        "vessel": "Golden Dream / Золотая мечта"
+      }
+    }
+  ]
+};
+if(typeof module==='object'&&module.exports)module.exports=data;else root.LotMTransportAtlas=data;
 })(typeof globalThis!=='undefined'?globalThis:this);
 
 </script><script>
@@ -1216,13 +3945,18 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
   'use strict';
   const commonJS = typeof module === 'object' && module.exports;
   const network = commonJS ? require('./island-network.js') : root.LotMIslandNetwork;
-  const api = factory(network);
+  const atlas = commonJS ? require('./transport-atlas.js') : root.LotMTransportAtlas;
+  const api = factory(network, atlas);
   if (commonJS) module.exports = api;
   else root.LotMTravel = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (network) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (network, atlas) {
   'use strict';
   if (!network || !Array.isArray(network.ports) || !Array.isArray(network.circuits)) {
     throw new Error('Load island-network.js before travel.js');
+  }
+  if (!atlas || !Array.isArray(atlas.sources) || !Array.isArray(atlas.stations) ||
+      !Array.isArray(atlas.railServices) || !Array.isArray(atlas.seaServices) || !Array.isArray(atlas.extraPorts)) {
+    throw new Error('Load transport-atlas.js before travel.js');
   }
   const SCALE = Object.freeze({
     cellAreaKm2: 1500,
@@ -1232,6 +3966,30 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     imageHeight: 3800
   });
   const KM_PER_NAUTICAL_MILE = 1.852;
+  const sources = Object.freeze(atlas.sources.map(source => Object.freeze({ ...source })));
+  const sourceById = new Map(sources.map(source => [source.id, source]));
+  if (sourceById.size !== sources.length) throw new Error('Transport source ids must be unique');
+  const gameplayEvidence = Object.freeze({ status: 'gameplay', sourceIds: Object.freeze([]), geometry: 'schematic', claim: 'Морская линия и расписание созданы для игры по карте мира книги.' });
+  function evidenceFor(definition) {
+    const evidence = definition.evidence || gameplayEvidence;
+    const sourceIds = Object.freeze([...(evidence.sourceIds || [])]);
+    for (const id of sourceIds) if (!sourceById.has(id)) throw new Error(`Unknown transport source ${id}`);
+    if (['documented', 'contextual'].includes(evidence.status) && !sourceIds.length) {
+      throw new Error(`Documented transport ${definition.id} requires its source references`);
+    }
+    return Object.freeze({ ...evidence, sourceIds });
+  }
+  function locationCopy(location, defaultKind) {
+    if (!location || typeof location.id !== 'string' || !location.id || typeof location.name !== 'string' ||
+        !Number.isFinite(location.x) || !Number.isFinite(location.y) ||
+        location.x < 0 || location.x > 100 || location.y < 0 || location.y > 100) {
+      throw new TypeError('Mapped transport locations need an id, name and finite map percentages');
+    }
+    return Object.freeze({ ...location, kind: location.kind || defaultKind });
+  }
+  const stations = Object.freeze(atlas.stations.map(station => locationCopy(station, 'rail-station')));
+  const stationById = new Map(stations.map(station => [station.id, station]));
+  if (stationById.size !== stations.length) throw new Error('Rail station ids must be unique');
   const toPixels = point => [point[0] / 100 * SCALE.imageWidth, point[1] / 100 * SCALE.imageHeight];
   const toPercent = point => [point[0] / SCALE.imageWidth * 100, point[1] / SCALE.imageHeight * 100];
   const pixelLength = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -1298,7 +4056,8 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     const totalKm = cumulativeKm.at(-1);
     const speedKnots = definition.kind === 'ship' ? definition.speedKnots : null;
     const speedKmh = speedKnots === null ? definition.speedKmh : speedKnots * KM_PER_NAUTICAL_MILE;
-    const dockMinutes = definition.kind === 'ship' ? definition.dockMinutes : 0;
+    const dockMinutes = definition.dockMinutes ?? (definition.kind === 'train' ? 5 : 0);
+    if (!Number.isFinite(dockMinutes) || dockMinutes < 0) throw new RangeError('Transport dwell time must be nonnegative');
     if (points.length < 2 || !(speedKmh > 0) || !Number.isFinite(speedKmh) || !(totalKm > 0)) {
       throw new RangeError('A route needs positive length and cruising speed');
     }
@@ -1307,6 +4066,11 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
       id: definition.id,
       kind: definition.kind,
       name: definition.name,
+      evidence: evidenceFor(definition),
+      serviceKind: definition.serviceKind || (definition.kind === 'train' ? 'rail-service' : 'gameplay'),
+      from: definition.from || definition.startPort?.id || null,
+      to: definition.to || definition.endPort?.id || null,
+      viaNames: Object.freeze([...(definition.viaNames || [])]),
       speedKnots,
       speedKmh,
       totalKm,
@@ -1323,10 +4087,18 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     });
   }
 
-  // The network names real map harbors and explicit offshore anchorages.
-  const ports = Object.freeze(network.ports.map(port => Object.freeze({ ...port })));
-  const portById = new Map(ports.map(port => [port.id, port]));
-  if (portById.size !== ports.length) throw new Error('Island port ids must be unique');
+  // Extra source-backed ports may extend the gameplay network, but must never
+  // silently relocate an existing map harbor with the same identity.
+  const portById = new Map();
+  for (const port of [...network.ports, ...atlas.extraPorts]) {
+    const copy = locationCopy(port, 'harbor');
+    const previous = portById.get(copy.id);
+    if (previous && distanceKm([previous.x, previous.y], [copy.x, copy.y]) > .0001) {
+      throw new Error(`Conflicting coordinates for transport port ${copy.id}`);
+    }
+    portById.set(copy.id, previous ? Object.freeze({ ...previous, ...copy }) : copy);
+  }
+  const ports = Object.freeze([...portById.values()]);
 
   function buildCircuit(definition) {
     const stopIds = definition.stopIds;
@@ -1377,6 +4149,8 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
       kind: 'ship',
       type: definition.type || 'regular',
       name: definition.name,
+      evidence: evidenceFor(definition),
+      serviceKind: definition.serviceKind || 'gameplay',
       speedKnots: definition.speedKnots,
       speedKmh: definition.speedKnots * KM_PER_NAUTICAL_MILE,
       totalKm,
@@ -1401,11 +4175,28 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     });
   }
 
+  function buildRailService(definition) {
+    const startPort = stationById.get(definition.from), endPort = stationById.get(definition.to);
+    if (!startPort || !endPort || startPort.id === endPort.id) {
+      throw new Error(`Rail service ${definition.id} requires two distinct mapped stations`);
+    }
+    if (!Array.isArray(definition.points) || definition.points.length < 2 ||
+        distanceKm(definition.points[0], [startPort.x, startPort.y]) > .0001 ||
+        distanceKm(definition.points.at(-1), [endPort.x, endPort.y]) > .0001) {
+      throw new Error(`Rail service ${definition.id} must start and finish at its mapped stations`);
+    }
+    const points = definition.points.map(point => [...point]);
+    points[0] = [startPort.x, startPort.y];
+    points[points.length - 1] = [endPort.x, endPort.y];
+    return buildRoute({ ...definition, kind: 'train', startPort, endPort, points });
+  }
+
   const routes = Object.freeze([
-    ...network.circuits.map(buildCircuit),
-    buildRoute({ id: 'rail-loen', kind: 'train', name: 'Паровоз Лоэна', speedKmh: 40,
-      points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] })
+    ...network.circuits.map(definition => buildCircuit({ ...definition, evidence: gameplayEvidence, serviceKind: 'gameplay' })),
+    ...atlas.seaServices.map(buildCircuit),
+    ...atlas.railServices.map(buildRailService)
   ]);
+  if (new Set(routes.map(route => route.id)).size !== routes.length) throw new Error('Transport route ids must be unique');
 
   function positionAlong(route, progress, returning) {
     const distance = route.totalKm * Math.max(0, Math.min(1, progress));
@@ -1428,19 +4219,25 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     const time = Number.isFinite(elapsedMinutes) ? Math.max(0, elapsedMinutes) : 0;
     if (route.kind === 'ship' && route.legs) return circuitStatusAt(route, time);
     const legMinutes = route.durationMinutes + route.dockMinutes;
-    const leg = Math.floor(time / legMinutes);
-    const withinLeg = time % legMinutes;
+    const epsilon = Math.max(1e-9, Number.EPSILON * time * 4);
+    let leg = Math.floor(time / legMinutes);
+    let withinLeg = time - leg * legMinutes;
+    if (legMinutes - withinLeg <= epsilon) { leg++; withinLeg = 0; }
+    else if (withinLeg <= epsilon) withinLeg = 0;
     const direction = leg % 2 ? 'return' : 'outbound';
     const origin = direction === 'outbound' ? route.startPort : route.endPort;
     const destination = direction === 'outbound' ? route.endPort : route.startPort;
-    const phase = withinLeg < route.dockMinutes ? 'docked' : 'sailing';
+    const phase = withinLeg + epsilon < route.dockMinutes ? 'docked' : 'sailing';
     const nextDepartureMinutes = phase === 'docked' ? route.dockMinutes - withinLeg : 0;
-    const progress = phase === 'docked' ? 0 : (withinLeg - route.dockMinutes) / route.durationMinutes;
+    const progress = phase === 'docked' ? 0 : Math.max(0, Math.min(1, (withinLeg - route.dockMinutes) / route.durationMinutes));
     const position = positionAlong(route, direction === 'return' ? 1 - progress : progress, direction === 'return');
     return {
       id: route.id,
       kind: route.kind,
       name: route.name,
+      evidence: route.evidence,
+      serviceKind: route.serviceKind,
+      viaNames: route.viaNames,
       speedKnots: route.speedKnots,
       speedKmh: route.speedKmh,
       totalKm: route.totalKm,
@@ -1485,6 +4282,8 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
       name: route.name,
       routeName: route.name,
       type: route.type,
+      evidence: route.evidence,
+      serviceKind: route.serviceKind,
       speedKnots: route.speedKnots,
       speedKmh: route.speedKmh,
       totalKm: currentLeg.totalKm,
@@ -1515,7 +4314,7 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     };
   }
 
-  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, ports, routes, distanceKm, statusAt });
+  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, ports, stations, sources, routes, distanceKm, statusAt });
 });
 
 </script><script>
@@ -1564,13 +4363,14 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
     path.setAttribute('stroke-linejoin', 'round');
     path.dataset.route = definition.id;
     if(definition.kind==='ship')path.style.stroke=routeColors.get(definition.id);
-    path.setAttribute('class', `simulation-route ${definition.kind}`);
+    path.setAttribute('class', `simulation-route ${definition.kind} source-${definition.evidence.status}`);
+    path.dataset.evidence=definition.evidence.status;
     const title = document.createElementNS(SVG_NS, 'title');
     title.textContent = `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`;
     path.append(title);
     return path;
   }
-  window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival, onPortSelect }) {
+  window.createWorldSimulation = function ({ routesLayer, transportLayer, weatherLayer, onArrival, onPortSelect, onStationSelect }) {
     injectStyles();
     const portMarkers = (travel.ports || []).map(port => {
       const marker = document.createElement('button');marker.type='button';
@@ -1580,6 +4380,14 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
       marker.onclick=()=>{if(typeof onPortSelect==='function')onPortSelect(port);};
       const pin=document.createElement('span');pin.className='port-pin';pin.textContent=port.kind==='anchorage'?'◇':'⚓';
       const label=document.createElement('span');label.className='port-label';label.textContent=port.name;
+      marker.append(pin,label);transportLayer.append(marker);return marker;
+    });
+    const stationMarkers=(travel.stations||[]).map(station=>{
+      const marker=document.createElement('button');marker.type='button';marker.className='station-marker';marker.dataset.stationId=station.id;
+      marker.style.left=`${station.x}%`;marker.style.top=`${station.y}%`;marker.setAttribute('aria-label',`Железнодорожный узел: ${station.name}`);
+      marker.onclick=()=>{if(typeof onStationSelect==='function')onStationSelect(station);};
+      const pin=document.createElement('span');pin.className='station-pin';pin.textContent='▰';
+      const label=document.createElement('span');label.className='port-label';label.textContent=station.name;
       marker.append(pin,label);transportLayer.append(marker);return marker;
     });
     const transport = routeDefinitions.map(definition => {
@@ -1592,7 +4400,7 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
       marker.setAttribute('aria-label', `${definition.name} — ${speedLabel(definition)} · условный маршрут кампании`);
       marker.title = `${definition.name} · ${speedLabel(definition)} · Условный маршрут кампании`;
       marker.innerHTML = icons[definition.kind];
-      const berth=document.createElement('span');berth.className='berth-label';berth.textContent='В порту';berth.hidden=true;marker.append(berth);
+      const berth=document.createElement('span');berth.className='berth-label';berth.textContent=definition.kind==='train'?'На станции':'В порту';berth.hidden=true;marker.append(berth);
       transportLayer.append(marker);
       return { definition, marker, path, berth, lastLeg: null };
     });
@@ -1653,10 +4461,14 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
       });
     }
     return {
-      update({ minutes = 0, ships = true, trains = true, events = [], shippingLine = 'all' } = {}) {
+      update({ minutes = 0, ships = true, trains = true, events = [], shippingLine = 'all', evidenceMode = 'documented', transportKind = 'all' } = {}) {
+        const allows=route=>{
+          const status=route.evidence.status;
+          return (transportKind==='all'||route.kind===transportKind)&&(shippingLine==='all'||route.id===shippingLine)&&(evidenceMode==='all'||status==='documented'||evidenceMode==='contextual'&&status==='contextual');
+        };
         const statuses = transport.map(item => {
           const { definition, marker, path, berth } = item;
-          const enabled = definition.kind === 'ship' ? ships && (shippingLine==='all'||shippingLine===definition.id) : trains;
+          const enabled = allows(definition)&&(definition.kind==='ship'?ships:trains);
           const status = travel.statusAt(definition, minutes);
           marker.hidden = !enabled;
           path.toggleAttribute('hidden', !enabled);
@@ -1667,7 +4479,7 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
           marker.classList.toggle('docked',docked);marker.dataset.phase=status.phase;
           berth.hidden=!docked;
           const journey=status.origin&&status.destination?`${status.origin.name} → ${status.destination.name}`:'';
-          const stateLabel=docked?`В порту ${status.currentPort.name}`:'В пути';
+          const stateLabel=docked?`${definition.kind==='train'?'На станции':'В порту'} ${status.currentPort.name}`:'В пути';
           marker.title=`${definition.name} · ${speedLabel(definition)} · ${journey} · ${stateLabel}`;
           marker.setAttribute('aria-label',marker.title);
           if (enabled && item.lastLeg !== null && status.leg > item.lastLeg && typeof onArrival === 'function') {
@@ -1677,14 +4489,16 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
           item.lastLeg = status.leg;
           return { ...status, enabled };
         });
-        const visiblePorts=new Set(routeDefinitions.filter(route=>route.kind==='ship'&&(shippingLine==='all'||route.id===shippingLine)).flatMap(route=>route.stopIds||[route.startPort.id,route.endPort.id]));
+        const visiblePorts=new Set(routeDefinitions.filter(route=>route.kind==='ship'&&allows(route)).flatMap(route=>route.stopIds||[route.startPort.id,route.endPort.id]));
         portMarkers.forEach(port=>port.hidden=!ships||!visiblePorts.has(port.dataset.portId));
+        const visibleStations=new Set(routeDefinitions.filter(route=>route.kind==='train'&&allows(route)).flatMap(route=>[route.startPort.id,route.endPort.id]));
+        stationMarkers.forEach(marker=>marker.hidden=!trains||!visibleStations.has(marker.dataset.stationId));
         updateWeather(Array.isArray(events) ? events : []);
         return statuses;
       },
       destroy() {
         transport.forEach(item => { item.marker.remove(); item.path.remove(); });
-        portMarkers.forEach(port=>port.remove());
+        portMarkers.forEach(port=>port.remove());stationMarkers.forEach(marker=>marker.remove());
         zones.forEach(zone => zone.remove());
         zones.clear();
       }
@@ -1695,9 +4509,9 @@ if(typeof module==='object' && module.exports)module.exports=network;else root.L
 </script><script>
 'use strict';
 const places = [
-  {id:'backlund',name:'Бэклунд',type:'city',region:'Королевство Лоэн',x:52.7,y:30.2,description:'Столица королевства Лоэн, известная как Столица столиц. За её фабриками, туманными улицами и аристократическими кварталами скрывается мир Потусторонних.'},
-  {id:'tingen',name:'Тинген',type:'city',region:'Королевство Лоэн',x:51.7,y:26.5,description:'Университетский город королевства Лоэн. Здесь начинается история Клейна Моретти и его знакомство с Ночными ястребами.'},
-  {id:'trier',name:'Трир',type:'city',region:'Республика Интис',x:44.8,y:26.8,description:'Столица республики Интис — город искусства, моды и интриг, тесно связанный с наследием императора Розелля.'},
+  {id:'backlund',name:'Бэклунд',type:'city',region:'Королевство Лоэн',x:54.45945945945946,y:29.131578947368418,description:'Столица королевства Лоэн, известная как Столица столиц. За её фабриками, туманными улицами и аристократическими кварталами скрывается мир Потусторонних.'},
+  {id:'tingen',name:'Тинген',type:'city',region:'Королевство Лоэн',x:53.9054054054054,y:26.526315789473685,description:'Университетский город королевства Лоэн. Здесь начинается история Клейна Моретти и его знакомство с Ночными ястребами.'},
+  {id:'trier',name:'Трир',type:'city',region:'Республика Интис',x:43.810810810810814,y:27.39473684210526,description:'Столица республики Интис — город искусства, моды и интриг, тесно связанный с наследием императора Розелля.'},
   {id:'north',name:'Северный континент',type:'region',region:'Земли королевств',x:43,y:18,description:'Земли Лоэна, Интиса, Фейсака и Фенепоттера. Центр промышленности, церквей и политических противоречий Пятой эпохи.'},
   {id:'south',name:'Южный континент',type:'region',region:'За морем Берсерка',x:57,y:59,description:'Континент древних традиций и наследия империи Балам, отделённый от севера опасными морскими путями.'},
   {id:'forsaken',name:'Забытая земля богов',type:'region',region:'За морем Руин',x:81,y:33,description:'Таинственные земли, погружённые во тьму после древней катастрофы. Здесь находится Город Серебра.'}
@@ -1727,7 +4541,7 @@ try {
     state.journal = (Array.isArray(saved.journal) ? saved.journal : []).filter(e => e && typeof e.text === 'string' && finite(e.minutes)).slice(0,12).map(e => ({text:e.text.slice(0,180),minutes:e.minutes}));
   }
 } catch { storageAvailable = false; }
-let shippingLine='all';
+let shippingLine='all', evidenceMode='documented', transportKind='all';
 let filter='all', selectedPlace=null, selectedPlayer=null, scale=1, dx=0, dy=0, mode=null, mapDrag=null, toastTimer;
 function node(tag, className, text) {
   const el = document.createElement(tag);
@@ -1764,6 +4578,7 @@ function renderJournal() {
   if (!state.journal.length) $('#journal').append(node('li','empty-state','Здесь появится история путешествия.'));
 }
 function setTab(tab) {
+  viewport.dataset.panel=tab;
   document.querySelectorAll('[data-tab]').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
   document.querySelectorAll('.tab-panel').forEach(p=>p.hidden=p.id!==`tab-${tab}`);
 }
@@ -1777,7 +4592,7 @@ function setMode(next) {
   if (window.innerWidth <= 800) viewport.scrollIntoView({block:'center',behavior:'smooth'});
 }
 $('#cancel-placement').onclick=()=>setMode(null);
-function closeDetail() { $('#detail').hidden=true;selectedPlace=null;document.querySelectorAll('.port-marker').forEach(el=>el.classList.remove('selected'));renderPlaces(); }
+function closeDetail() { $('#detail').hidden=true;selectedPlace=null;document.querySelectorAll('.port-marker,.station-marker').forEach(el=>el.classList.remove('selected'));renderPlaces(); }
 function renderPlaces() {
   const query=$('#search').value.trim().toLocaleLowerCase('ru');
   const visible=places.filter(p=>(filter==='all'||p.type===filter)&&(p.name+' '+p.region).toLocaleLowerCase('ru').includes(query));
@@ -1792,7 +4607,7 @@ function renderPlaces() {
   if(!visible.length)$('#places').append(node('p','empty-state','Места не найдены. Попробуйте другой запрос.'));
 }
 function selectPlace(p) {
-  document.querySelectorAll('.port-marker').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('.port-marker,.station-marker').forEach(el=>el.classList.remove('selected'));
   selectedPlace=p.id;const panel=$('#detail');panel.hidden=false;panel.replaceChildren();
   panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',`${p.type==='city'?'ГОРОД':'РЕГИОН'} / ${p.region}`),node('h3','',p.name),node('p','',p.description));renderPlaces();
 }
@@ -1915,23 +4730,64 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();setTab('places');$('#search').focus();}
   if(e.key==='Escape'){setMode(null);closeDetail();}
 });
-const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer'),onPortSelect:selectPort});
-function selectPort(port) {
+const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer'),onPortSelect:selectPort,onStationSelect:selectStation});
+function sourceViewAllows(route) {
+  const status=route.evidence?.status||'gameplay';
+  return (transportKind==='all'||route.kind===transportKind)&&(evidenceMode==='all'||status==='documented'||evidenceMode==='contextual'&&status==='contextual');
+}
+function evidenceDetails(evidence) {
+  const details=node('details','source-evidence');
+  const sourceIds=evidence?.sourceIds||[];
+  details.append(node('summary','',sourceIds.length?`Источники и пояснение · ${sourceIds.length}`:'Основание линии'));
+  if(evidence?.claim)details.append(node('p','',evidence.claim));
+  if(evidence?.note)details.append(node('p','',evidence.note));
+  if(evidence?.simulationNote)details.append(node('p','',evidence.simulationNote));
+  if(evidence?.geometry)details.append(node('p','', 'Трасса на карте — схематическая реконструкция между указанными пунктами.'));
+  const links=node('div','source-links');
+  for(const id of sourceIds){const source=LotMTravel.sources.find(item=>item.id===id);if(!source)continue;const link=node('a','',source.title);link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';links.append(link);}
+  details.append(links);return details;
+}
+function chooseRoute(routeId) {
+  const route=LotMTravel.routes.find(item=>item.id===routeId);if(!route)return;
+  if(route.evidence.status==='gameplay')evidenceMode='all';else if(route.evidence.status==='contextual'&&evidenceMode==='documented')evidenceMode='contextual';
+  transportKind=route.kind;shippingLine=route.id;$('#evidence-mode').value=evidenceMode;$('#transport-kind').value=transportKind;
+  refreshRouteOptions();updateWorld(true);focusVoyage(route.id);
+}
+function selectPort(port) { selectTransportNode(port,'ship'); }
+function selectStation(station) { selectTransportNode(station,'train'); }
+function selectTransportNode(place,kind) {
   if(mode)return;
   closeDetail();setTab('travel');
-  document.querySelectorAll('.port-marker').forEach(el=>el.classList.toggle('selected',el.dataset.portId===port.id));
+  const selector=kind==='train'?'.station-marker':'.port-marker';
+  document.querySelectorAll(selector).forEach(el=>el.classList.toggle('selected',(el.dataset.stationId||el.dataset.portId)===place.id));
   const panel=$('#detail');panel.hidden=false;panel.replaceChildren();
-  panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',`${port.kind==='anchorage'?'РЕЙД':'ГАВАНЬ'} / ${port.island||'Морская линия'}`),node('h3','',port.name),node('p','',port.note||'Стоянка морского маршрута на карте мира книги.'));
-  const lines=node('div','entity-actions');
-  for(const route of LotMTravel.routes.filter(route=>route.kind==='ship'&&route.stopIds.includes(port.id)))lines.append(button(route.name,'',()=>{shippingLine=route.id;$('#shipping-line').value=route.id;updateWorld(true);focusVoyage(route.id);}));
+  const category=kind==='train'?'ЖЕЛЕЗНОДОРОЖНЫЙ УЗЕЛ':place.kind==='anchorage'?'РЕЙД':'ГАВАНЬ';
+  panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',category),node('h3','',place.name),node('p','',place.note||place.island||'Городская привязка к схематической транспортной сети.'));
+  const lines=node('div','entity-actions detail-lines');
+  const served=LotMTravel.routes.filter(route=>route.kind===kind&&(kind==='train'?[route.startPort?.id,route.endPort?.id].includes(place.id):route.stopIds.includes(place.id)));
+  for(const route of served)lines.append(button(route.name,'',()=>chooseRoute(route.id)));
   panel.append(lines);
   if(window.innerWidth<=800)viewport.scrollIntoView({block:'center',behavior:'smooth'});
 }
+function refreshRouteOptions() {
+  const eligible=LotMTravel.routes.filter(sourceViewAllows);
+  $('#shipping-line').replaceChildren();const all=node('option','','Все линии и рейсы');all.value='all';$('#shipping-line').append(all);
+  for(const route of eligible){const option=node('option','',route.name);option.value=route.id;$('#shipping-line').append(option);}
+  if(shippingLine!=='all'&&!eligible.some(route=>route.id===shippingLine))shippingLine='all';$('#shipping-line').value=shippingLine;
+  $('#network-summary').textContent=`На карте: ж/д ${eligible.filter(route=>route.kind==='train').length} · морских линий ${eligible.filter(route=>route.kind==='ship').length}`;
+  renderTransportCatalog();
+}
+function renderTransportCatalog() {
+  const list=$('#transport-catalog');list.replaceChildren();
+  const records=LotMTransportAtlas.unmapped.filter(item=>transportKind==='all'||item.kind===transportKind);
+  $('#catalog-count').textContent=records.length;
+  for(const record of records){const card=node('article','catalog-card');card.append(node('h4','',record.name),node('small','catalog-class',record.classificationLabel||'Сведения без точной трассы'),evidenceDetails(record.evidence));list.append(card);}
+}
 function initTravelFilters() {
-  const ships=LotMTravel.routes.filter(route=>route.kind==='ship');
-  $('#network-summary').textContent=`Стоянок: ${LotMTravel.ports.length} · морских линий: ${ships.length}`;
-  for(const route of ships){const option=node('option','',route.name);option.value=route.id;$('#shipping-line').append(option);}
+  refreshRouteOptions();
   $('#shipping-line').onchange=()=>{shippingLine=$('#shipping-line').value;updateWorld(true);};
+  $('#evidence-mode').onchange=()=>{evidenceMode=$('#evidence-mode').value;refreshRouteOptions();updateWorld(true);};
+  $('#transport-kind').onchange=()=>{transportKind=$('#transport-kind').value;refreshRouteOptions();updateWorld(true);if(transportKind!=='all')fitTransportPoints(LotMTravel.routes.filter(sourceViewAllows).flatMap(route=>route.points));};
 }
 function formatDuration(minutes) {
   const total=Math.max(0,Math.ceil(minutes));
@@ -1941,7 +4797,11 @@ function formatDuration(minutes) {
 function formatDistance(km) { return km.toLocaleString('ru-RU',{maximumFractionDigits:1}); }
 function focusVoyage(routeId) {
   const route=LotMTravel.routes.find(item=>item.id===routeId);if(!route)return;
-  const xs=route.points.map(p=>p[0]),ys=route.points.map(p=>p[1]);
+  fitTransportPoints(route.points);
+}
+function fitTransportPoints(points) {
+  if(!points.length)return;
+  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
   const width=(maxX-minX)/100*world.offsetWidth,height=(maxY-minY)/100*world.offsetHeight;
   scale=clamp(Math.min((viewport.clientWidth-100)/Math.max(width,1),(viewport.clientHeight-160)/Math.max(height,1)),.75,6);
@@ -1950,8 +4810,8 @@ function focusVoyage(routeId) {
 }
 function renderTravel(statuses) {
   if(!Array.isArray(statuses))return;
-  const list=$('#travel-list');const openRoutes=new Set(Array.from(list.querySelectorAll('details[open]')).map(el=>el.closest('article').dataset.routeId));list.replaceChildren();
-  for(const route of statuses.filter(route=>route.kind!=='ship'||shippingLine==='all'||route.id===shippingLine)){
+  const list=$('#travel-list');const openRoutes=new Set(Array.from(list.querySelectorAll('details.itinerary[open]')).map(el=>el.closest('article').dataset.routeId));const openSources=new Set(Array.from(list.querySelectorAll('details.source-evidence[open]')).map(el=>el.closest('article').dataset.routeId));list.replaceChildren();
+  for(const route of statuses.filter(route=>sourceViewAllows(route)&&(shippingLine==='all'||route.id===shippingLine))){
     const card=node('article','entity-card travel-card');card.dataset.routeId=route.id;
     const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
     const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
@@ -1961,11 +4821,16 @@ function renderTravel(statuses) {
     if(route.kind==='ship'){info.append(node('span','',`Стоянка: ${formatDuration(route.dockMinutes)}`),node('span','',`Весь круг: ${formatDistance(route.circuitKm)} км · ${formatDuration(route.circuitMinutes)} со стоянками`));}
     const journey=route.origin&&route.destination?`${route.origin.name} → ${route.destination.name}`:(route.direction==='return'?'Бэклунд → Тинген':'Тинген → Бэклунд');
     const docked=route.phase==='docked';
-    const movement=docked?`На стоянке: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
+    const movement=docked?`${route.kind==='train'?'На станции':'На стоянке'}: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
     const status=route.enabled?`${movement}${state.running?'':' · пауза'}`:'Скрыт на карте';
     const remaining=docked?`Отправление через ${formatDuration(route.nextDepartureMinutes)}`:`До прибытия: ${formatDuration(route.remainingMinutes)} · ${formatDistance(route.remainingKm)} км`;
     const actions=node('div','entity-actions');actions.append(button('↗ Показать рейс','move-button',()=>focusVoyage(route.id),`Показать рейс: ${route.name}`));
-    card.append(heading,node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`${remaining} игрового времени`),actions);
+    const badge=node('span',`evidence-badge ${route.evidence.status}`,route.evidence.status==='documented'?'Подтверждено в тексте':route.evidence.status==='contextual'?'Вывод из контекста':'Игровая линия');
+    const serviceLabel={'rail-service':'Железнодорожное сообщение','regular-service':'Регулярное морское сообщение','documented-voyage':'Описанная в книге поездка','travel-plan':'План поездки из книги','gameplay':'Игровой круговой рейс'}[route.serviceKind]||'Игровая модель';
+    card.append(heading,badge,node('p','service-kind',serviceLabel),node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`Игровая модель: ${remaining}`),actions);
+    if(route.evidence.canonicalDuration)card.append(node('p','book-timing',`В книге: ${route.evidence.canonicalDuration}`));
+    if(route.evidence.departureTimes?.length)card.append(node('p','book-timing',`Отправления в книге: ${route.evidence.departureTimes.join(' / ')}`));
+    const proof=evidenceDetails(route.evidence);proof.open=openSources.has(route.id);card.append(proof);
     if(route.kind==='ship'){
       if(route.type==='expedition')card.append(node('p','expedition-label','Экспедиционная линия · рейдовые стоянки'));
       const itinerary=node('details','itinerary');itinerary.open=openRoutes.has(route.id);itinerary.append(node('summary','',`Остановки: ${route.stopCount} · полный маршрут`));
@@ -1978,7 +4843,7 @@ function renderTravel(statuses) {
 }
 let lastMinute=-1;
 function updateWorld(force=false) {
-  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events,shippingLine});
+  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events,shippingLine,evidenceMode,transportKind});
   const minute=Math.floor(state.minutes);if(minute===lastMinute&&!force)return;lastMinute=minute;
   renderTravel(travelStatuses);
   const hour=(state.minutes%1440)/60;

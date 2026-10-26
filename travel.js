@@ -3,13 +3,18 @@
   'use strict';
   const commonJS = typeof module === 'object' && module.exports;
   const network = commonJS ? require('./island-network.js') : root.LotMIslandNetwork;
-  const api = factory(network);
+  const atlas = commonJS ? require('./transport-atlas.js') : root.LotMTransportAtlas;
+  const api = factory(network, atlas);
   if (commonJS) module.exports = api;
   else root.LotMTravel = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (network) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (network, atlas) {
   'use strict';
   if (!network || !Array.isArray(network.ports) || !Array.isArray(network.circuits)) {
     throw new Error('Load island-network.js before travel.js');
+  }
+  if (!atlas || !Array.isArray(atlas.sources) || !Array.isArray(atlas.stations) ||
+      !Array.isArray(atlas.railServices) || !Array.isArray(atlas.seaServices) || !Array.isArray(atlas.extraPorts)) {
+    throw new Error('Load transport-atlas.js before travel.js');
   }
   const SCALE = Object.freeze({
     cellAreaKm2: 1500,
@@ -19,6 +24,30 @@
     imageHeight: 3800
   });
   const KM_PER_NAUTICAL_MILE = 1.852;
+  const sources = Object.freeze(atlas.sources.map(source => Object.freeze({ ...source })));
+  const sourceById = new Map(sources.map(source => [source.id, source]));
+  if (sourceById.size !== sources.length) throw new Error('Transport source ids must be unique');
+  const gameplayEvidence = Object.freeze({ status: 'gameplay', sourceIds: Object.freeze([]), geometry: 'schematic', claim: 'Морская линия и расписание созданы для игры по карте мира книги.' });
+  function evidenceFor(definition) {
+    const evidence = definition.evidence || gameplayEvidence;
+    const sourceIds = Object.freeze([...(evidence.sourceIds || [])]);
+    for (const id of sourceIds) if (!sourceById.has(id)) throw new Error(`Unknown transport source ${id}`);
+    if (['documented', 'contextual'].includes(evidence.status) && !sourceIds.length) {
+      throw new Error(`Documented transport ${definition.id} requires its source references`);
+    }
+    return Object.freeze({ ...evidence, sourceIds });
+  }
+  function locationCopy(location, defaultKind) {
+    if (!location || typeof location.id !== 'string' || !location.id || typeof location.name !== 'string' ||
+        !Number.isFinite(location.x) || !Number.isFinite(location.y) ||
+        location.x < 0 || location.x > 100 || location.y < 0 || location.y > 100) {
+      throw new TypeError('Mapped transport locations need an id, name and finite map percentages');
+    }
+    return Object.freeze({ ...location, kind: location.kind || defaultKind });
+  }
+  const stations = Object.freeze(atlas.stations.map(station => locationCopy(station, 'rail-station')));
+  const stationById = new Map(stations.map(station => [station.id, station]));
+  if (stationById.size !== stations.length) throw new Error('Rail station ids must be unique');
   const toPixels = point => [point[0] / 100 * SCALE.imageWidth, point[1] / 100 * SCALE.imageHeight];
   const toPercent = point => [point[0] / SCALE.imageWidth * 100, point[1] / SCALE.imageHeight * 100];
   const pixelLength = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -85,7 +114,8 @@
     const totalKm = cumulativeKm.at(-1);
     const speedKnots = definition.kind === 'ship' ? definition.speedKnots : null;
     const speedKmh = speedKnots === null ? definition.speedKmh : speedKnots * KM_PER_NAUTICAL_MILE;
-    const dockMinutes = definition.kind === 'ship' ? definition.dockMinutes : 0;
+    const dockMinutes = definition.dockMinutes ?? (definition.kind === 'train' ? 5 : 0);
+    if (!Number.isFinite(dockMinutes) || dockMinutes < 0) throw new RangeError('Transport dwell time must be nonnegative');
     if (points.length < 2 || !(speedKmh > 0) || !Number.isFinite(speedKmh) || !(totalKm > 0)) {
       throw new RangeError('A route needs positive length and cruising speed');
     }
@@ -94,6 +124,11 @@
       id: definition.id,
       kind: definition.kind,
       name: definition.name,
+      evidence: evidenceFor(definition),
+      serviceKind: definition.serviceKind || (definition.kind === 'train' ? 'rail-service' : 'gameplay'),
+      from: definition.from || definition.startPort?.id || null,
+      to: definition.to || definition.endPort?.id || null,
+      viaNames: Object.freeze([...(definition.viaNames || [])]),
       speedKnots,
       speedKmh,
       totalKm,
@@ -110,10 +145,18 @@
     });
   }
 
-  // The network names real map harbors and explicit offshore anchorages.
-  const ports = Object.freeze(network.ports.map(port => Object.freeze({ ...port })));
-  const portById = new Map(ports.map(port => [port.id, port]));
-  if (portById.size !== ports.length) throw new Error('Island port ids must be unique');
+  // Extra source-backed ports may extend the gameplay network, but must never
+  // silently relocate an existing map harbor with the same identity.
+  const portById = new Map();
+  for (const port of [...network.ports, ...atlas.extraPorts]) {
+    const copy = locationCopy(port, 'harbor');
+    const previous = portById.get(copy.id);
+    if (previous && distanceKm([previous.x, previous.y], [copy.x, copy.y]) > .0001) {
+      throw new Error(`Conflicting coordinates for transport port ${copy.id}`);
+    }
+    portById.set(copy.id, previous ? Object.freeze({ ...previous, ...copy }) : copy);
+  }
+  const ports = Object.freeze([...portById.values()]);
 
   function buildCircuit(definition) {
     const stopIds = definition.stopIds;
@@ -164,6 +207,8 @@
       kind: 'ship',
       type: definition.type || 'regular',
       name: definition.name,
+      evidence: evidenceFor(definition),
+      serviceKind: definition.serviceKind || 'gameplay',
       speedKnots: definition.speedKnots,
       speedKmh: definition.speedKnots * KM_PER_NAUTICAL_MILE,
       totalKm,
@@ -188,11 +233,28 @@
     });
   }
 
+  function buildRailService(definition) {
+    const startPort = stationById.get(definition.from), endPort = stationById.get(definition.to);
+    if (!startPort || !endPort || startPort.id === endPort.id) {
+      throw new Error(`Rail service ${definition.id} requires two distinct mapped stations`);
+    }
+    if (!Array.isArray(definition.points) || definition.points.length < 2 ||
+        distanceKm(definition.points[0], [startPort.x, startPort.y]) > .0001 ||
+        distanceKm(definition.points.at(-1), [endPort.x, endPort.y]) > .0001) {
+      throw new Error(`Rail service ${definition.id} must start and finish at its mapped stations`);
+    }
+    const points = definition.points.map(point => [...point]);
+    points[0] = [startPort.x, startPort.y];
+    points[points.length - 1] = [endPort.x, endPort.y];
+    return buildRoute({ ...definition, kind: 'train', startPort, endPort, points });
+  }
+
   const routes = Object.freeze([
-    ...network.circuits.map(buildCircuit),
-    buildRoute({ id: 'rail-loen', kind: 'train', name: 'Паровоз Лоэна', speedKmh: 40,
-      points: [[51.7, 26.5], [52.1, 27.5], [52.4, 28.3], [52.7, 30.2]] })
+    ...network.circuits.map(definition => buildCircuit({ ...definition, evidence: gameplayEvidence, serviceKind: 'gameplay' })),
+    ...atlas.seaServices.map(buildCircuit),
+    ...atlas.railServices.map(buildRailService)
   ]);
+  if (new Set(routes.map(route => route.id)).size !== routes.length) throw new Error('Transport route ids must be unique');
 
   function positionAlong(route, progress, returning) {
     const distance = route.totalKm * Math.max(0, Math.min(1, progress));
@@ -215,19 +277,25 @@
     const time = Number.isFinite(elapsedMinutes) ? Math.max(0, elapsedMinutes) : 0;
     if (route.kind === 'ship' && route.legs) return circuitStatusAt(route, time);
     const legMinutes = route.durationMinutes + route.dockMinutes;
-    const leg = Math.floor(time / legMinutes);
-    const withinLeg = time % legMinutes;
+    const epsilon = Math.max(1e-9, Number.EPSILON * time * 4);
+    let leg = Math.floor(time / legMinutes);
+    let withinLeg = time - leg * legMinutes;
+    if (legMinutes - withinLeg <= epsilon) { leg++; withinLeg = 0; }
+    else if (withinLeg <= epsilon) withinLeg = 0;
     const direction = leg % 2 ? 'return' : 'outbound';
     const origin = direction === 'outbound' ? route.startPort : route.endPort;
     const destination = direction === 'outbound' ? route.endPort : route.startPort;
-    const phase = withinLeg < route.dockMinutes ? 'docked' : 'sailing';
+    const phase = withinLeg + epsilon < route.dockMinutes ? 'docked' : 'sailing';
     const nextDepartureMinutes = phase === 'docked' ? route.dockMinutes - withinLeg : 0;
-    const progress = phase === 'docked' ? 0 : (withinLeg - route.dockMinutes) / route.durationMinutes;
+    const progress = phase === 'docked' ? 0 : Math.max(0, Math.min(1, (withinLeg - route.dockMinutes) / route.durationMinutes));
     const position = positionAlong(route, direction === 'return' ? 1 - progress : progress, direction === 'return');
     return {
       id: route.id,
       kind: route.kind,
       name: route.name,
+      evidence: route.evidence,
+      serviceKind: route.serviceKind,
+      viaNames: route.viaNames,
       speedKnots: route.speedKnots,
       speedKmh: route.speedKmh,
       totalKm: route.totalKm,
@@ -272,6 +340,8 @@
       name: route.name,
       routeName: route.name,
       type: route.type,
+      evidence: route.evidence,
+      serviceKind: route.serviceKind,
       speedKnots: route.speedKnots,
       speedKmh: route.speedKmh,
       totalKm: currentLeg.totalKm,
@@ -302,5 +372,5 @@
     };
   }
 
-  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, ports, routes, distanceKm, statusAt });
+  return Object.freeze({ SCALE, KM_PER_NAUTICAL_MILE, ports, stations, sources, routes, distanceKm, statusAt });
 });

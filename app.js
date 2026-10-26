@@ -1,8 +1,8 @@
 'use strict';
 const places = [
-  {id:'backlund',name:'Бэклунд',type:'city',region:'Королевство Лоэн',x:52.7,y:30.2,description:'Столица королевства Лоэн, известная как Столица столиц. За её фабриками, туманными улицами и аристократическими кварталами скрывается мир Потусторонних.'},
-  {id:'tingen',name:'Тинген',type:'city',region:'Королевство Лоэн',x:51.7,y:26.5,description:'Университетский город королевства Лоэн. Здесь начинается история Клейна Моретти и его знакомство с Ночными ястребами.'},
-  {id:'trier',name:'Трир',type:'city',region:'Республика Интис',x:44.8,y:26.8,description:'Столица республики Интис — город искусства, моды и интриг, тесно связанный с наследием императора Розелля.'},
+  {id:'backlund',name:'Бэклунд',type:'city',region:'Королевство Лоэн',x:54.45945945945946,y:29.131578947368418,description:'Столица королевства Лоэн, известная как Столица столиц. За её фабриками, туманными улицами и аристократическими кварталами скрывается мир Потусторонних.'},
+  {id:'tingen',name:'Тинген',type:'city',region:'Королевство Лоэн',x:53.9054054054054,y:26.526315789473685,description:'Университетский город королевства Лоэн. Здесь начинается история Клейна Моретти и его знакомство с Ночными ястребами.'},
+  {id:'trier',name:'Трир',type:'city',region:'Республика Интис',x:43.810810810810814,y:27.39473684210526,description:'Столица республики Интис — город искусства, моды и интриг, тесно связанный с наследием императора Розелля.'},
   {id:'north',name:'Северный континент',type:'region',region:'Земли королевств',x:43,y:18,description:'Земли Лоэна, Интиса, Фейсака и Фенепоттера. Центр промышленности, церквей и политических противоречий Пятой эпохи.'},
   {id:'south',name:'Южный континент',type:'region',region:'За морем Берсерка',x:57,y:59,description:'Континент древних традиций и наследия империи Балам, отделённый от севера опасными морскими путями.'},
   {id:'forsaken',name:'Забытая земля богов',type:'region',region:'За морем Руин',x:81,y:33,description:'Таинственные земли, погружённые во тьму после древней катастрофы. Здесь находится Город Серебра.'}
@@ -32,7 +32,7 @@ try {
     state.journal = (Array.isArray(saved.journal) ? saved.journal : []).filter(e => e && typeof e.text === 'string' && finite(e.minutes)).slice(0,12).map(e => ({text:e.text.slice(0,180),minutes:e.minutes}));
   }
 } catch { storageAvailable = false; }
-let shippingLine='all';
+let shippingLine='all', evidenceMode='documented', transportKind='all';
 let filter='all', selectedPlace=null, selectedPlayer=null, scale=1, dx=0, dy=0, mode=null, mapDrag=null, toastTimer;
 function node(tag, className, text) {
   const el = document.createElement(tag);
@@ -69,6 +69,7 @@ function renderJournal() {
   if (!state.journal.length) $('#journal').append(node('li','empty-state','Здесь появится история путешествия.'));
 }
 function setTab(tab) {
+  viewport.dataset.panel=tab;
   document.querySelectorAll('[data-tab]').forEach(b=>{const active=b.dataset.tab===tab;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
   document.querySelectorAll('.tab-panel').forEach(p=>p.hidden=p.id!==`tab-${tab}`);
 }
@@ -82,7 +83,7 @@ function setMode(next) {
   if (window.innerWidth <= 800) viewport.scrollIntoView({block:'center',behavior:'smooth'});
 }
 $('#cancel-placement').onclick=()=>setMode(null);
-function closeDetail() { $('#detail').hidden=true;selectedPlace=null;document.querySelectorAll('.port-marker').forEach(el=>el.classList.remove('selected'));renderPlaces(); }
+function closeDetail() { $('#detail').hidden=true;selectedPlace=null;document.querySelectorAll('.port-marker,.station-marker').forEach(el=>el.classList.remove('selected'));renderPlaces(); }
 function renderPlaces() {
   const query=$('#search').value.trim().toLocaleLowerCase('ru');
   const visible=places.filter(p=>(filter==='all'||p.type===filter)&&(p.name+' '+p.region).toLocaleLowerCase('ru').includes(query));
@@ -97,7 +98,7 @@ function renderPlaces() {
   if(!visible.length)$('#places').append(node('p','empty-state','Места не найдены. Попробуйте другой запрос.'));
 }
 function selectPlace(p) {
-  document.querySelectorAll('.port-marker').forEach(el=>el.classList.remove('selected'));
+  document.querySelectorAll('.port-marker,.station-marker').forEach(el=>el.classList.remove('selected'));
   selectedPlace=p.id;const panel=$('#detail');panel.hidden=false;panel.replaceChildren();
   panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',`${p.type==='city'?'ГОРОД':'РЕГИОН'} / ${p.region}`),node('h3','',p.name),node('p','',p.description));renderPlaces();
 }
@@ -220,23 +221,64 @@ document.addEventListener('keydown',e=>{
   if(e.key==='/'&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();setTab('places');$('#search').focus();}
   if(e.key==='Escape'){setMode(null);closeDetail();}
 });
-const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer'),onPortSelect:selectPort});
-function selectPort(port) {
+const simulation=window.createWorldSimulation({routesLayer:$('#routes-layer'),transportLayer:$('#transport-layer'),weatherLayer:$('#weather-layer'),onPortSelect:selectPort,onStationSelect:selectStation});
+function sourceViewAllows(route) {
+  const status=route.evidence?.status||'gameplay';
+  return (transportKind==='all'||route.kind===transportKind)&&(evidenceMode==='all'||status==='documented'||evidenceMode==='contextual'&&status==='contextual');
+}
+function evidenceDetails(evidence) {
+  const details=node('details','source-evidence');
+  const sourceIds=evidence?.sourceIds||[];
+  details.append(node('summary','',sourceIds.length?`Источники и пояснение · ${sourceIds.length}`:'Основание линии'));
+  if(evidence?.claim)details.append(node('p','',evidence.claim));
+  if(evidence?.note)details.append(node('p','',evidence.note));
+  if(evidence?.simulationNote)details.append(node('p','',evidence.simulationNote));
+  if(evidence?.geometry)details.append(node('p','', 'Трасса на карте — схематическая реконструкция между указанными пунктами.'));
+  const links=node('div','source-links');
+  for(const id of sourceIds){const source=LotMTravel.sources.find(item=>item.id===id);if(!source)continue;const link=node('a','',source.title);link.href=source.url;link.target='_blank';link.rel='noopener noreferrer';links.append(link);}
+  details.append(links);return details;
+}
+function chooseRoute(routeId) {
+  const route=LotMTravel.routes.find(item=>item.id===routeId);if(!route)return;
+  if(route.evidence.status==='gameplay')evidenceMode='all';else if(route.evidence.status==='contextual'&&evidenceMode==='documented')evidenceMode='contextual';
+  transportKind=route.kind;shippingLine=route.id;$('#evidence-mode').value=evidenceMode;$('#transport-kind').value=transportKind;
+  refreshRouteOptions();updateWorld(true);focusVoyage(route.id);
+}
+function selectPort(port) { selectTransportNode(port,'ship'); }
+function selectStation(station) { selectTransportNode(station,'train'); }
+function selectTransportNode(place,kind) {
   if(mode)return;
   closeDetail();setTab('travel');
-  document.querySelectorAll('.port-marker').forEach(el=>el.classList.toggle('selected',el.dataset.portId===port.id));
+  const selector=kind==='train'?'.station-marker':'.port-marker';
+  document.querySelectorAll(selector).forEach(el=>el.classList.toggle('selected',(el.dataset.stationId||el.dataset.portId)===place.id));
   const panel=$('#detail');panel.hidden=false;panel.replaceChildren();
-  panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',`${port.kind==='anchorage'?'РЕЙД':'ГАВАНЬ'} / ${port.island||'Морская линия'}`),node('h3','',port.name),node('p','',port.note||'Стоянка морского маршрута на карте мира книги.'));
-  const lines=node('div','entity-actions');
-  for(const route of LotMTravel.routes.filter(route=>route.kind==='ship'&&route.stopIds.includes(port.id)))lines.append(button(route.name,'',()=>{shippingLine=route.id;$('#shipping-line').value=route.id;updateWorld(true);focusVoyage(route.id);}));
+  const category=kind==='train'?'ЖЕЛЕЗНОДОРОЖНЫЙ УЗЕЛ':place.kind==='anchorage'?'РЕЙД':'ГАВАНЬ';
+  panel.append(button('×','close-detail',closeDetail,'Закрыть карточку'),node('small','',category),node('h3','',place.name),node('p','',place.note||place.island||'Городская привязка к схематической транспортной сети.'));
+  const lines=node('div','entity-actions detail-lines');
+  const served=LotMTravel.routes.filter(route=>route.kind===kind&&(kind==='train'?[route.startPort?.id,route.endPort?.id].includes(place.id):route.stopIds.includes(place.id)));
+  for(const route of served)lines.append(button(route.name,'',()=>chooseRoute(route.id)));
   panel.append(lines);
   if(window.innerWidth<=800)viewport.scrollIntoView({block:'center',behavior:'smooth'});
 }
+function refreshRouteOptions() {
+  const eligible=LotMTravel.routes.filter(sourceViewAllows);
+  $('#shipping-line').replaceChildren();const all=node('option','','Все линии и рейсы');all.value='all';$('#shipping-line').append(all);
+  for(const route of eligible){const option=node('option','',route.name);option.value=route.id;$('#shipping-line').append(option);}
+  if(shippingLine!=='all'&&!eligible.some(route=>route.id===shippingLine))shippingLine='all';$('#shipping-line').value=shippingLine;
+  $('#network-summary').textContent=`На карте: ж/д ${eligible.filter(route=>route.kind==='train').length} · морских линий ${eligible.filter(route=>route.kind==='ship').length}`;
+  renderTransportCatalog();
+}
+function renderTransportCatalog() {
+  const list=$('#transport-catalog');list.replaceChildren();
+  const records=LotMTransportAtlas.unmapped.filter(item=>transportKind==='all'||item.kind===transportKind);
+  $('#catalog-count').textContent=records.length;
+  for(const record of records){const card=node('article','catalog-card');card.append(node('h4','',record.name),node('small','catalog-class',record.classificationLabel||'Сведения без точной трассы'),evidenceDetails(record.evidence));list.append(card);}
+}
 function initTravelFilters() {
-  const ships=LotMTravel.routes.filter(route=>route.kind==='ship');
-  $('#network-summary').textContent=`Стоянок: ${LotMTravel.ports.length} · морских линий: ${ships.length}`;
-  for(const route of ships){const option=node('option','',route.name);option.value=route.id;$('#shipping-line').append(option);}
+  refreshRouteOptions();
   $('#shipping-line').onchange=()=>{shippingLine=$('#shipping-line').value;updateWorld(true);};
+  $('#evidence-mode').onchange=()=>{evidenceMode=$('#evidence-mode').value;refreshRouteOptions();updateWorld(true);};
+  $('#transport-kind').onchange=()=>{transportKind=$('#transport-kind').value;refreshRouteOptions();updateWorld(true);if(transportKind!=='all')fitTransportPoints(LotMTravel.routes.filter(sourceViewAllows).flatMap(route=>route.points));};
 }
 function formatDuration(minutes) {
   const total=Math.max(0,Math.ceil(minutes));
@@ -246,7 +288,11 @@ function formatDuration(minutes) {
 function formatDistance(km) { return km.toLocaleString('ru-RU',{maximumFractionDigits:1}); }
 function focusVoyage(routeId) {
   const route=LotMTravel.routes.find(item=>item.id===routeId);if(!route)return;
-  const xs=route.points.map(p=>p[0]),ys=route.points.map(p=>p[1]);
+  fitTransportPoints(route.points);
+}
+function fitTransportPoints(points) {
+  if(!points.length)return;
+  const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
   const width=(maxX-minX)/100*world.offsetWidth,height=(maxY-minY)/100*world.offsetHeight;
   scale=clamp(Math.min((viewport.clientWidth-100)/Math.max(width,1),(viewport.clientHeight-160)/Math.max(height,1)),.75,6);
@@ -255,8 +301,8 @@ function focusVoyage(routeId) {
 }
 function renderTravel(statuses) {
   if(!Array.isArray(statuses))return;
-  const list=$('#travel-list');const openRoutes=new Set(Array.from(list.querySelectorAll('details[open]')).map(el=>el.closest('article').dataset.routeId));list.replaceChildren();
-  for(const route of statuses.filter(route=>route.kind!=='ship'||shippingLine==='all'||route.id===shippingLine)){
+  const list=$('#travel-list');const openRoutes=new Set(Array.from(list.querySelectorAll('details.itinerary[open]')).map(el=>el.closest('article').dataset.routeId));const openSources=new Set(Array.from(list.querySelectorAll('details.source-evidence[open]')).map(el=>el.closest('article').dataset.routeId));list.replaceChildren();
+  for(const route of statuses.filter(route=>sourceViewAllows(route)&&(shippingLine==='all'||route.id===shippingLine))){
     const card=node('article','entity-card travel-card');card.dataset.routeId=route.id;
     const heading=node('div','entity-head');heading.append(node('span','entity-avatar',route.kind==='ship'?'⚓':'▰'),node('h3','',route.name));
     const speed=route.speedKnots?`${route.speedKnots} уз · ${formatDistance(route.speedKmh)} км/ч`:`${formatDistance(route.speedKmh)} км/ч`;
@@ -266,11 +312,16 @@ function renderTravel(statuses) {
     if(route.kind==='ship'){info.append(node('span','',`Стоянка: ${formatDuration(route.dockMinutes)}`),node('span','',`Весь круг: ${formatDistance(route.circuitKm)} км · ${formatDuration(route.circuitMinutes)} со стоянками`));}
     const journey=route.origin&&route.destination?`${route.origin.name} → ${route.destination.name}`:(route.direction==='return'?'Бэклунд → Тинген':'Тинген → Бэклунд');
     const docked=route.phase==='docked';
-    const movement=docked?`На стоянке: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
+    const movement=docked?`${route.kind==='train'?'На станции':'На стоянке'}: ${route.currentPort.name}`:route.direction==='return'?'Обратный рейс':'В пути';
     const status=route.enabled?`${movement}${state.running?'':' · пауза'}`:'Скрыт на карте';
     const remaining=docked?`Отправление через ${formatDuration(route.nextDepartureMinutes)}`:`До прибытия: ${formatDuration(route.remainingMinutes)} · ${formatDistance(route.remainingKm)} км`;
     const actions=node('div','entity-actions');actions.append(button('↗ Показать рейс','move-button',()=>focusVoyage(route.id),`Показать рейс: ${route.name}`));
-    card.append(heading,node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`${remaining} игрового времени`),actions);
+    const badge=node('span',`evidence-badge ${route.evidence.status}`,route.evidence.status==='documented'?'Подтверждено в тексте':route.evidence.status==='contextual'?'Вывод из контекста':'Игровая линия');
+    const serviceLabel={'rail-service':'Железнодорожное сообщение','regular-service':'Регулярное морское сообщение','documented-voyage':'Описанная в книге поездка','travel-plan':'План поездки из книги','gameplay':'Игровой круговой рейс'}[route.serviceKind]||'Игровая модель';
+    card.append(heading,badge,node('p','service-kind',serviceLabel),node('p','journey-label',journey),node('p','travel-speed',`Крейсерская: ${speed}`),info,progress,node('p','travel-remaining',status),node('p','entity-meta',`Игровая модель: ${remaining}`),actions);
+    if(route.evidence.canonicalDuration)card.append(node('p','book-timing',`В книге: ${route.evidence.canonicalDuration}`));
+    if(route.evidence.departureTimes?.length)card.append(node('p','book-timing',`Отправления в книге: ${route.evidence.departureTimes.join(' / ')}`));
+    const proof=evidenceDetails(route.evidence);proof.open=openSources.has(route.id);card.append(proof);
     if(route.kind==='ship'){
       if(route.type==='expedition')card.append(node('p','expedition-label','Экспедиционная линия · рейдовые стоянки'));
       const itinerary=node('details','itinerary');itinerary.open=openRoutes.has(route.id);itinerary.append(node('summary','',`Остановки: ${route.stopCount} · полный маршрут`));
@@ -283,7 +334,7 @@ function renderTravel(statuses) {
 }
 let lastMinute=-1;
 function updateWorld(force=false) {
-  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events,shippingLine});
+  const travelStatuses=simulation.update({minutes:state.minutes-state.travelEpochMinutes,ships:state.ships,trains:state.trains,events:state.events,shippingLine,evidenceMode,transportKind});
   const minute=Math.floor(state.minutes);if(minute===lastMinute&&!force)return;lastMinute=minute;
   renderTravel(travelStatuses);
   const hour=(state.minutes%1440)/60;
